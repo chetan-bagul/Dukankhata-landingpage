@@ -31,7 +31,7 @@ const pageMarkup = `
     <span class="pill">Daily sales book · Udhar · GST billing</span>
     <h1>The modern khata book for <em>Indian shops.</em></h1>
     <p class="lead">Close your day in 30 seconds. Know if you're short or extra. Track cash, UPI and udhar, and bill customers with GST invoices — all synced to the cloud.</p>
-    <div class="cta"><a href="#download" class="btn btn-gold"><svg class="i"><use href="#dl"/></svg>Download DukanKhata.apk</a><button type="button" class="btn btn-line" data-soon>Open Web App</button></div>
+    <div class="cta"><a href="#download" class="btn btn-gold"><svg class="i"><use href="#dl"/></svg>Download DukanKhata.apk</a><button type="button" class="btn btn-dark" data-soon>Open Web App</button></div>
     <div class="checks"><span><svg class="i"><use href="#ck"/></svg>Cash &amp; UPI tracking</span><span><svg class="i"><use href="#ck"/></svg>GST invoices</span><span><svg class="i"><use href="#ck"/></svg>WhatsApp sharing</span></div>
   </div>
   <div class="visual">
