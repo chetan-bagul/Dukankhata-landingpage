@@ -1,0 +1,5 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+body { @apply bg-paper text-slate-800; font-family: 'Segoe UI', system-ui, sans-serif; }
+.btn { @apply rounded-lg px-4 py-2 font-semibold transition active:scale-95 disabled:opacity-40; }
+.inp { @apply w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-gold; }
+@media print { body * { visibility: hidden; } #invoice, #invoice * { visibility: visible; } #invoice { position: absolute; inset: 0; width: 210mm; } }

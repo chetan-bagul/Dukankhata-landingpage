@@ -21,7 +21,7 @@ const pageMarkup = `
 
 <header><div class="wrap nav">
   <a href="#"><img src="/logo-header-light.svg" alt="DukanKhata"></a>
-  <ul><li><a href="#how">How it works</a></li><li><a href="#features">Features</a></li><li><a href="#modes">Modes</a></li><li><a href="#pricing">Pricing</a></li><li><a href="#faq">FAQ</a></li></ul>
+  <ul><li><a href="#how">How it works</a></li><li><a href="#features">Features</a></li><li><a href="#modes">Modes</a></li><li><a href="#pricing">Pricing</a></li><li><a href="#faq">FAQ</a></li><li><a href="/app">Web App</a></li></ul>
   <a href="#download" class="btn btn-dark">Download APK</a>
 </div></header>
 
@@ -31,7 +31,7 @@ const pageMarkup = `
     <span class="pill">Daily sales book · Udhar · GST billing</span>
     <h1>The modern khata book for <em>Indian shops.</em></h1>
     <p class="lead">Close your day in 30 seconds. Know if you're short or extra. Track cash, UPI and udhar, and bill customers with GST invoices — all synced to the cloud.</p>
-    <div class="cta"><a href="#download" class="btn btn-gold"><svg class="i"><use href="#dl"/></svg>Download DukanKhata.apk</a><button type="button" class="btn btn-dark" data-soon>Open Web App</button></div>
+    <div class="cta"><a href="#download" class="btn btn-gold"><svg class="i"><use href="#dl"/></svg>Download DukanKhata.apk</a><a href="/app" class="btn btn-line">Open Web App</a></div>
     <div class="checks"><span><svg class="i"><use href="#ck"/></svg>Cash &amp; UPI tracking</span><span><svg class="i"><use href="#ck"/></svg>GST invoices</span><span><svg class="i"><use href="#ck"/></svg>WhatsApp sharing</span></div>
   </div>
   <div class="visual">
@@ -153,13 +153,6 @@ const pageMarkup = `
   <a href="#" class="btn btn-gold"><svg class="i"><use href="#dl"/></svg>Download DukanKhata.apk</a>
 </div></div>
 </main>
-<div class="ov" id="soon" role="dialog" aria-modal="true" aria-labelledby="st"><div class="md">
-  <button class="x" aria-label="Close" data-close>&times;</button>
-  <div class="ico"><svg class="i" style="width:26px;height:26px"><use href="#cloud"/></svg></div>
-  <h3 id="st">Web App — Coming soon</h3>
-  <p>We're getting the DukanKhata web app ready. Until then, you can use everything on the Android app.</p>
-  <a href="#download" class="btn btn-dark" data-close>Get the Android app</a>
-</div></div>
 <footer class="bottom"><div class="wrap"><span>© 2026 DukanKhata™. All rights reserved.</span><a href="mailto:dukankhata.help@gmail.com">dukankhata.help@gmail.com</a></div></footer>
 
 
@@ -202,20 +195,6 @@ export default function App() {
         root.querySelectorAll('.save').forEach((s) => { s.textContent = yearly ? s.dataset.y : ''; });
       };
     });
-    const overlay = root.querySelector('#soon');
-    root.querySelectorAll('[data-soon]').forEach((button) => {
-      button.onclick = () => { overlay?.classList.add('on'); overlay?.querySelector('.x')?.focus(); };
-    });
-    const overlayClick = (event) => {
-      if (event.target === overlay || event.target.closest('[data-close]')) overlay?.classList.remove('on');
-    };
-    overlay?.addEventListener('click', overlayClick);
-    const escapeHandler = (event) => { if (event.key === 'Escape') overlay?.classList.remove('on'); };
-    document.addEventListener('keydown', escapeHandler);
-    return () => {
-      document.removeEventListener('keydown', escapeHandler);
-      overlay?.removeEventListener('click', overlayClick);
-    };
   }, []);
   return <div id="dukankhata-root" dangerouslySetInnerHTML={{ __html: pageMarkup }} />;
 }
