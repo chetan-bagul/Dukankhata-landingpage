@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DukanKhata™ — Daily Sales Book, POS Billing & Udhar Khata</title>
+<meta name="description" content="Close your day in 30 seconds or bill at the counter with GST invoices. DukanKhata is the cloud-synced retail and daily sales app for Indian shops.">
+<link rel="icon" href="./favicon.ico" sizes="48x48">
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="manifest" href="./site.webmanifest">
+<link rel="mask-icon" href="./safari-pinned-tab.svg" color="#0F3D2F">
+<meta name="theme-color" content="#0F3D2F">
+<meta name="msapplication-TileColor" content="#0F3D2F">
+<meta property="og:title" content="DukanKhata™ — Universal Retail & Daily Sales Book">
+<meta property="og:image" content="./og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif']},colors:{brand:'#0F3D2F',brand2:'#1B4D3E',brandDark:'#0A2B25',gold:'#E8C468',cash:'#2F8A55',upi:'#5F259F'}}}}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+html{scroll-behavior:smooth}
+.hero-bg{background:radial-gradient(900px 500px at 85% 0%,rgba(47,138,85,.35),transparent 60%),linear-gradient(180deg,#0F3D2F,#0A2B25)}
+.dots{background-image:radial-gradient(rgba(232,196,104,.18) 1px,transparent 1px);background-size:22px 22px}
+</style>
+</head>
+<body class="font-sans bg-white text-slate-700 antialiased">
+
+<!-- NAV (light logo = dark wordmark, so nav is white) -->
+<header class="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-200">
+  <div class="max-w-7xl mx-auto px-5 h-[72px] flex items-center justify-between">
+    <a href="#"><img src="./logo-header-light.svg" alt="DukanKhata" class="h-10 w-auto"></a>
+    <nav class="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
+      <a href="#screens" class="hover:text-brand">App</a>
+      <a href="#modes" class="hover:text-brand">Modes</a>
+      <a href="#features" class="hover:text-brand">Features</a>
+      <a href="#how" class="hover:text-brand">How it works</a>
+      <a href="#pricing" class="hover:text-brand">Pricing</a>
+    </nav>
+    <div class="flex items-center gap-3">
+      <a href="https://api.dukankhata.in" target="_blank" rel="noopener" class="hidden sm:inline text-sm font-semibold text-brand hover:underline">Open Web App</a>
+      <a href="#download" class="bg-brand text-white hover:bg-brand2 px-5 py-2.5 rounded-lg text-sm font-bold transition">Download APK</a>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero-bg text-white relative overflow-hidden">
+  <div class="dots absolute inset-0 opacity-60"></div>
+  <div class="relative max-w-7xl mx-auto px-5 py-20 lg:py-28 grid lg:grid-cols-2 gap-14 items-center">
+    <div>
+      <span class="inline-flex items-center gap-2 border border-gold/40 bg-gold/10 text-gold text-xs font-bold tracking-wider uppercase px-3.5 py-1.5 rounded-full">
+        <span class="w-1.5 h-1.5 rounded-full bg-gold"></span> Built for Indian retail
+      </span>
+      <h1 class="mt-6 text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold leading-[1.1] tracking-tight">
+        Your shop's daily sales, billing &amp; <span class="text-gold">udhar khata</span> in one app.
+      </h1>
+      <p class="mt-6 text-lg text-emerald-100/90 max-w-xl">
+        Close the day in 30 seconds with Small Shop mode, or run counter billing with GST invoices in Large Shop mode. Cloud-synced and secure.
+      </p>
+      <div class="mt-9 flex flex-col sm:flex-row gap-4">
+        <a href="#download" class="bg-gold hover:bg-yellow-300 text-brandDark font-extrabold px-8 py-4 rounded-xl shadow-xl transition text-center">Download DukanKhata.apk</a>
+        <a href="#modes" class="border border-white/25 hover:bg-white/10 font-semibold px-8 py-4 rounded-xl transition text-center">Explore modes</a>
+      </div>
+      <div class="mt-10 flex flex-wrap gap-x-8 gap-y-3 text-sm text-emerald-100/80">
+        <span class="flex items-center gap-2"><b class="text-gold">✓</b> Cash &amp; UPI tracking</span>
+        <span class="flex items-center gap-2"><b class="text-gold">✓</b> GST invoices</span>
+        <span class="flex items-center gap-2"><b class="text-gold">✓</b> WhatsApp sharing</span>
+      </div>
+    </div>
+
+    <!-- Real app screenshot -->
+    <div class="flex justify-center lg:justify-end">
+      <div class="w-[290px] rounded-[2.4rem] bg-slate-900 p-2.5 shadow-2xl ring-1 ring-white/10 rotate-2">
+        <div class="rounded-[2rem] overflow-hidden bg-slate-50 h-[560px]">
+          <img src="./screens/history.jpg" alt="DukanKhata history screen with financial overview and daily breakdown" class="w-full object-top">
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS STRIP -->
+<section class="border-b border-slate-200 bg-slate-50">
+  <div class="max-w-7xl mx-auto px-5 py-10 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+    <div><p class="text-3xl font-extrabold text-brand">30 sec</p><p class="text-sm text-slate-500 mt-1">Daily closing</p></div>
+    <div><p class="text-3xl font-extrabold text-brand">2 modes</p><p class="text-sm text-slate-500 mt-1">Small &amp; Large shop</p></div>
+    <div><p class="text-3xl font-extrabold text-brand">GST</p><p class="text-sm text-slate-500 mt-1">A4 tax invoices</p></div>
+    <div><p class="text-3xl font-extrabold text-brand">Cloud</p><p class="text-sm text-slate-500 mt-1">Synced &amp; backed up</p></div>
+  </div>
+</section>
+
+<!-- APP SCREENS -->
+<section id="screens" class="py-24 px-5 bg-slate-50 border-b border-slate-200">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center max-w-2xl mx-auto">
+      <p class="text-cash font-bold text-sm uppercase tracking-widest">Inside the app</p>
+      <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-brand">Clear numbers. Zero clutter.</h2>
+      <p class="mt-4 text-slate-600">Real screens from DukanKhata: target vs actual sales, daily breakdown and a full customer credit ledger.</p>
+    </div>
+    <div class="mt-14 grid md:grid-cols-3 gap-10 items-start">
+      <figure class="text-center">
+        <div class="mx-auto max-w-[270px] rounded-[2rem] bg-slate-900 p-2 shadow-xl"><div class="rounded-[1.6rem] overflow-hidden h-[520px] bg-slate-50"><img src="./screens/history.jpg" alt="Financial overview and daily breakdown" class="w-full" loading="lazy"></div></div>
+        <figcaption class="mt-5 font-bold text-brand">Financial overview</figcaption>
+        <p class="text-sm text-slate-600 mt-1">Target vs actual revenue, Cash vs UPI, and Balanced / Extra / Short badges for every day.</p>
+      </figure>
+      <figure class="text-center">
+        <div class="mx-auto max-w-[270px] rounded-[2rem] bg-slate-900 p-2 shadow-xl"><div class="rounded-[1.6rem] overflow-hidden bg-slate-50"><img src="./screens/credit-ledger.jpg" alt="Credit ledger customer list" class="w-full" loading="lazy"></div></div>
+        <figcaption class="mt-5 font-bold text-brand">Credit ledger</figcaption>
+        <p class="text-sm text-slate-600 mt-1">Search customers and see who owes what, at a glance.</p>
+      </figure>
+      <figure class="text-center">
+        <div class="mx-auto max-w-[270px] rounded-[2rem] bg-slate-900 p-2 shadow-xl"><div class="rounded-[1.6rem] overflow-hidden bg-slate-50"><img src="./screens/customer-ledger.jpg" alt="Customer account summary and credit history" class="w-full" loading="lazy"></div></div>
+        <figcaption class="mt-5 font-bold text-brand">Customer statements</figcaption>
+        <p class="text-sm text-slate-600 mt-1">Credit sales, payments and advances with a shareable statement or bill.</p>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- MODES -->
+<section id="modes" class="py-24 px-5">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center max-w-2xl mx-auto">
+      <p class="text-cash font-bold text-sm uppercase tracking-widest">Operating modes</p>
+      <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-brand">One app, tailored to how your shop runs</h2>
+      <p class="mt-4 text-slate-600">Switch modes anytime inside the application as your business grows.</p>
+    </div>
+    <div class="mt-14 grid md:grid-cols-2 gap-8">
+      <div class="rounded-3xl border border-slate-200 p-9 bg-white shadow-sm hover:shadow-xl transition">
+        <div class="flex items-center justify-between">
+          <span class="w-14 h-14 rounded-2xl bg-emerald-100 text-2xl grid place-items-center">🏪</span>
+          <span class="text-xs font-bold bg-emerald-100 text-cash px-3 py-1.5 rounded-full">30-SEC CLOSING</span>
+        </div>
+        <h3 class="mt-6 text-2xl font-extrabold text-brand">Small Shop Mode</h3>
+        <p class="mt-2 text-slate-600">Ideal for kiosks, tea stalls, bakeries and small daily retail stores.</p>
+        <ul class="mt-6 space-y-3">
+          <li class="flex gap-3"><b class="text-cash">✓</b>Quick end-of-day sales closing</li>
+          <li class="flex gap-3"><b class="text-cash">✓</b>Cash &amp; PhonePe collection logging</li>
+          <li class="flex gap-3"><b class="text-cash">✓</b>Automatic profit / loss variance badge</li>
+        </ul>
+      </div>
+      <div class="rounded-3xl border border-slate-200 p-9 bg-white shadow-sm hover:shadow-xl transition">
+        <div class="flex items-center justify-between">
+          <span class="w-14 h-14 rounded-2xl bg-amber-100 text-2xl grid place-items-center">⚡</span>
+          <span class="text-xs font-bold bg-amber-100 text-amber-800 px-3 py-1.5 rounded-full">POS &amp; GST</span>
+        </div>
+        <h3 class="mt-6 text-2xl font-extrabold text-brand">Large Shop Mode</h3>
+        <p class="mt-2 text-slate-600">Built for busy counters, supermarkets, pharmacies and retail shops.</p>
+        <ul class="mt-6 space-y-3">
+          <li class="flex gap-3"><b class="text-amber-600">✓</b>Real-time POS counter billing &amp; cart checkout</li>
+          <li class="flex gap-3"><b class="text-amber-600">✓</b>Itemized GST A4 tax invoices with WhatsApp sharing</li>
+          <li class="flex gap-3"><b class="text-amber-600">✓</b>Daily sales history &amp; inventory rollup, automatic</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" class="py-24 px-5 bg-slate-50 border-y border-slate-200">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center max-w-2xl mx-auto">
+      <p class="text-cash font-bold text-sm uppercase tracking-widest">Features</p>
+      <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-brand">Everything a shop owner needs, nothing they don't</h2>
+    </div>
+    <div class="mt-14 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="bg-white rounded-2xl p-7 border border-slate-200"><div class="w-11 h-11 rounded-xl bg-emerald-100 text-cash grid place-items-center font-bold">₹</div><h3 class="mt-5 font-bold text-brand text-lg">Cash &amp; UPI ledger</h3><p class="mt-2 text-sm text-slate-600">Separate cash and PhonePe collections, reconciled every day.</p></div>
+      <div class="bg-white rounded-2xl p-7 border border-slate-200"><div class="w-11 h-11 rounded-xl bg-purple-100 text-upi grid place-items-center font-bold">🧾</div><h3 class="mt-5 font-bold text-brand text-lg">GST tax invoices</h3><p class="mt-2 text-sm text-slate-600">Professional itemized A4 invoices generated instantly at checkout.</p></div>
+      <div class="bg-white rounded-2xl p-7 border border-slate-200"><div class="w-11 h-11 rounded-xl bg-amber-100 text-amber-700 grid place-items-center font-bold">📒</div><h3 class="mt-5 font-bold text-brand text-lg">Udhar khata</h3><p class="mt-2 text-sm text-slate-600">Track what customers owe so no credit entry is ever forgotten.</p></div>
+      <div class="bg-white rounded-2xl p-7 border border-slate-200"><div class="w-11 h-11 rounded-xl bg-emerald-100 text-cash grid place-items-center font-bold">📈</div><h3 class="mt-5 font-bold text-brand text-lg">Profit / loss badge</h3><p class="mt-2 text-sm text-slate-600">Every day is tagged Balanced, Extra or Short against your target.</p></div>
+      <div class="bg-white rounded-2xl p-7 border border-slate-200"><div class="w-11 h-11 rounded-xl bg-purple-100 text-upi grid place-items-center font-bold">💬</div><h3 class="mt-5 font-bold text-brand text-lg">WhatsApp sharing</h3><p class="mt-2 text-sm text-slate-600">Share customer statements, bills and PDF financial reports in one tap.</p></div>
+      <div class="bg-white rounded-2xl p-7 border border-slate-200"><div class="w-11 h-11 rounded-xl bg-amber-100 text-amber-700 grid place-items-center font-bold">☁️</div><h3 class="mt-5 font-bold text-brand text-lg">Cloud sync</h3><p class="mt-2 text-sm text-slate-600">Records are backed up and available on web and mobile.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" class="py-24 px-5">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center max-w-2xl mx-auto">
+      <p class="text-cash font-bold text-sm uppercase tracking-widest">How it works</p>
+      <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-brand">Up and running in three steps</h2>
+    </div>
+    <div class="mt-14 grid md:grid-cols-3 gap-10">
+      <div class="text-center"><div class="mx-auto w-14 h-14 rounded-full bg-brand text-gold font-extrabold text-xl grid place-items-center">1</div><h3 class="mt-5 font-bold text-brand text-lg">Install the app</h3><p class="mt-2 text-sm text-slate-600">Download the APK and sign in on your Android phone.</p></div>
+      <div class="text-center"><div class="mx-auto w-14 h-14 rounded-full bg-brand text-gold font-extrabold text-xl grid place-items-center">2</div><h3 class="mt-5 font-bold text-brand text-lg">Pick your mode</h3><p class="mt-2 text-sm text-slate-600">Choose Small Shop or Large Shop and set up your store.</p></div>
+      <div class="text-center"><div class="mx-auto w-14 h-14 rounded-full bg-brand text-gold font-extrabold text-xl grid place-items-center">3</div><h3 class="mt-5 font-bold text-brand text-lg">Record &amp; relax</h3><p class="mt-2 text-sm text-slate-600">Log sales or bill customers; reports build themselves.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing" class="py-24 px-5 bg-slate-50 border-y border-slate-200">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center max-w-2xl mx-auto">
+      <p class="text-cash font-bold text-sm uppercase tracking-widest">Pricing</p>
+      <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-brand">Simple plans, no hidden fees</h2>
+    </div>
+    <div class="mt-14 grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+      <div class="bg-white rounded-3xl p-9 border border-slate-200 shadow-sm">
+        <h3 class="font-bold text-lg text-brand">Small Shop Plan</h3>
+        <p class="mt-5"><span class="text-5xl font-extrabold text-brand">₹199</span><span class="text-slate-500"> / month</span></p>
+        <p class="mt-2 text-sm font-bold text-cash">or ₹1,999 / year — save ₹389</p>
+        <ul class="mt-7 space-y-3 text-sm">
+          <li class="flex gap-3"><b class="text-cash">✓</b>30-second daily closing</li>
+          <li class="flex gap-3"><b class="text-cash">✓</b>Cash &amp; PhonePe logging</li>
+          <li class="flex gap-3"><b class="text-cash">✓</b>Profit / loss variance badge</li>
+        </ul>
+        <a href="#download" class="mt-8 block text-center border-2 border-brand text-brand hover:bg-brand hover:text-white font-bold py-3.5 rounded-xl transition">Get Started</a>
+      </div>
+      <div class="bg-white rounded-3xl p-9 border-2 border-gold shadow-sm relative">
+        <span class="absolute -top-3.5 left-9 bg-gold text-brandDark text-[11px] font-extrabold uppercase tracking-wider px-4 py-1 rounded-full">Most popular</span>
+        <h3 class="font-bold text-lg text-brand">Large Shop / POS Plan</h3>
+        <p class="mt-5"><span class="text-5xl font-extrabold text-brand">₹299</span><span class="text-slate-500"> / month</span></p>
+        <p class="mt-2 text-sm font-bold text-cash">or ₹2,999 / year — save ₹589</p>
+        <ul class="mt-7 space-y-3 text-sm">
+          <li class="flex gap-3"><b class="text-cash">✓</b>Real-time POS billing</li>
+          <li class="flex gap-3"><b class="text-cash">✓</b>GST A4 invoices &amp; WhatsApp sharing</li>
+          <li class="flex gap-3"><b class="text-cash">✓</b>Sales history &amp; inventory rollup</li>
+        </ul>
+        <a href="#download" class="mt-8 block text-center bg-brand hover:bg-brand2 text-white font-bold py-3.5 rounded-xl transition">Get Started</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA / FOOTER (dark logo = white wordmark) -->
+<footer id="download" class="bg-brandDark text-white">
+  <div class="max-w-4xl mx-auto px-5 py-20 text-center">
+    <img src="./logo-header-dark.svg" alt="DukanKhata" class="h-12 w-auto mx-auto">
+    <h2 class="mt-8 text-3xl sm:text-4xl font-extrabold">Ready to digitize your shop records?</h2>
+    <p class="mt-3 text-emerald-100/90">Download the official DukanKhata™ Android app today.</p>
+    <a href="#" class="mt-8 inline-block bg-gold hover:bg-yellow-300 text-brandDark font-extrabold text-lg px-10 py-4 rounded-xl shadow-2xl transition">Download DukanKhata.apk</a>
+  </div>
+  <div class="border-t border-white/10">
+    <div class="max-w-7xl mx-auto px-5 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-emerald-200/80">
+      <p>© 2026 DukanKhata™. All rights reserved.</p>
+      <a href="mailto:dukankhata.help@gmail.com" class="hover:text-white underline">dukankhata.help@gmail.com</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
