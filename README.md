@@ -1,33 +1,66 @@
-# DukanKhata — Website + Web App (one React project)
+# DukanKhata™ Landing Page & Web Platform
 
-| URL      | What it is |
-|----------|------------|
-| `/`      | SEO landing page (hero, features, pricing, FAQ). "Open Web App" button goes to `/app`. |
-| `/app`   | Large Shop web app (login / signup, POS, bills, Udhar Khata, reports, subscription). Desktop layout, `noindex`. |
+> Modern Retail Management Operating System & Dual POS SaaS for Indian Merchants.
 
-## Run
+![DukanKhata Platform](https://img.shields.io/badge/Status-Live-success)
+![React](https://img.shields.io/badge/React-18-blue)
+![Vite](https://img.shields.io/badge/Vite-6-646CFF)
+![License](https://img.shields.io/badge/License-Proprietary-red)
+
+## 📌 Features
+
+- **Dual Shop Operating Modes**:
+  - **Small Shop Mode**: 30-Second Rapid Daily Closing, End-of-Day cash/UPI reconciliation, and expense tracking.
+  - **Large Shop POS Mode**: High-speed item search, instant split payments (Cash / UPI / Udhar Khata), and GST tax billing.
+- **Interactive Live Simulator**:
+  - Test real calculations for Daily Closing, Cash/UPI distributions, and Udhar balance ledgers right on the landing page.
+- **Audit-Grade Compliance**:
+  - Rule 46 CGST tax invoicing, composition scheme support, CGST/SGST/IGST breakdown, and HSN compliance.
+- **Dedicated Legal & Compliance Pages**:
+  - Terms of Service (`/terms`)
+  - Privacy Policy (`/privacy`)
+  - Refund & Cancellation (`/refund-policy`)
+  - GST Compliance (`/gst-compliance`)
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js (v18 or higher recommended)
+- npm or yarn
+
+### Installation
+
 ```bash
+# Clone the repository
+git clone https://github.com/chetan-bagul/Dukankhata-landingpage.git
+
+# Navigate into project directory
+cd Dukankhata-landingpage
+
+# Install dependencies
 npm install
-npm run dev      # http://localhost:5173  and  http://localhost:5173/app
-npm run build    # output in dist/
+
+# Start development server
+npm run dev
+```
+
+### Production Build
+
+```bash
+# Compile and optimize for production
+npm run build
+
+# Preview production build locally
 npm run preview
 ```
 
-## Structure
-```
-src/main.tsx            router (/ and /app, each lazy-loaded)
-src/landing/            landing page (plain CSS, SEO markup)
-src/web-app/            web app (Tailwind CSS)
-  lib/api.ts            API base URL: https://api.dukankhata.in/api/v1/
-public/                 logos, favicons, screenshots, sitemap, robots, Google verification
-```
+## 🛠️ Tech Stack
 
-Landing page CSS and web-app Tailwind CSS are kept apart: each page is its own chunk and the two
-pages link to each other with normal links, so their styles never mix.
+- **Framework**: React 18
+- **Build Tool**: Vite
+- **Routing**: React Router DOM (v6)
+- **Styling**: Vanilla CSS Design System with design tokens, CSS variables, and modern glassmorphism aesthetics
+- **API Client**: Axios
 
-## Deploy (Vercel)
-Framework: Vite · Build: `npm run build` · Output: `dist`. `vercel.json` already rewrites every path to
-`index.html`, so `/app` works on refresh.
-
-## Google Analytics
-Set `VITE_GA_ID` (e.g. `G-XXXXXXXXXX`) in the environment. It is loaded on the landing page only.
+---
+© DukanKhata Technologies Pvt. Ltd. All rights reserved.

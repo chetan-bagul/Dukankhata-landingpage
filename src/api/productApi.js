@@ -1,0 +1,1 @@
+import api from "./axiosClient"; export const getProducts=()=>api.get("/products"); export const createProduct=p=>api.post("/products",p); export const updateProduct=(id,p)=>api.put(`/products/${id}`,p); export const deactivateProduct=id=>api.delete(`/products/${id}`);
