@@ -74,7 +74,7 @@ export default function DashboardPage() {
         enableUdhar ? listCustomers() : Promise.resolve([]),
         showLarge ? getLowStock() : Promise.resolve({ data: [] }),
         showLarge ? getPurchases() : Promise.resolve({ data: [] }),
-        showLarge ? getSales() : Promise.resolve({ data: [] }),
+        showLarge ? getSales(0, 25) : Promise.resolve({ data: [] }),
       ]);
 
       // 1. Report Summary

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { getProducts } from "../../api/productApi";
 import { listCustomers } from "../../api/customerApi";
 import { listStaff } from "../../api/staffApi";
-import { createSale, getSales, downloadInvoice } from "../../api/posApi";
+import { createSale, getSales, downloadInvoice, parsePaginationHeaders } from "../../api/posApi";
 import { newIdempotencyKey } from "../../api/idempotency";
 import { getApiErrorMessage } from "../../api/apiError";
 import { useAuth } from "../../context/AuthContext";
@@ -43,6 +43,12 @@ export default function PosPage() {
   const [recentBillsSearch, setRecentBillsSearch] = useState("");
   const [previewSale, setPreviewSale] = useState(null);
   const [loading, setLoading] = useState(!cachedProds || cachedProds.length === 0);
+
+  // POS Sales Pagination (Backend default: page=0, size=25, X-Has-More header)
+  const [salesPage, setSalesPage] = useState(0);
+  const [hasMoreSales, setHasMoreSales] = useState(false);
+  const [loadingSales, setLoadingSales] = useState(false);
+  const [loadingMoreSales, setLoadingMoreSales] = useState(false);
 
   // Catalog search & filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -88,7 +94,7 @@ export default function PosPage() {
         getProducts(),
         enableUdhar ? listCustomers() : Promise.resolve([]),
         enableStaff ? listStaff() : Promise.resolve({ data: [] }),
-        getSales(),
+        getSales(0, 25),
       ]);
 
       const rawProducts = prodRes.status === "fulfilled" ? (prodRes.value.data?.data || prodRes.value.data || []) : [];
@@ -106,6 +112,13 @@ export default function PosPage() {
       setStaff(cleanStaff);
       setRecentSales(cleanSales);
 
+      // Parse pagination headers (X-Page, X-Page-Size, X-Has-More)
+      if (salesRes.status === "fulfilled" && salesRes.value?.headers) {
+        const meta = parsePaginationHeaders(salesRes.value.headers);
+        setSalesPage(meta.page);
+        setHasMoreSales(meta.hasMore);
+      }
+
       // Cache datasets for instant sub-millisecond reuse
       if (cleanProds.length > 0) setCached(CACHE_KEYS.PRODUCTS, cleanProds, TTL.PRODUCTS);
       if (cleanCusts.length > 0) setCached(CACHE_KEYS.CUSTOMERS, cleanCusts, TTL.CUSTOMERS);
@@ -116,6 +129,43 @@ export default function PosPage() {
       setLoading(false);
     }
   }
+
+  // Load specific page of sales records (supports append for infinite scroll / load more)
+  async function loadSalesPage(page = 0, append = false) {
+    if (append) {
+      setLoadingMoreSales(true);
+    } else {
+      setLoadingSales(true);
+    }
+    try {
+      const res = await getSales(page, 25);
+      const raw = res.data?.data || res.data || [];
+      const clean = Array.isArray(raw) ? raw : [];
+      const meta = parsePaginationHeaders(res.headers);
+
+      if (append) {
+        setRecentSales((prev) => {
+          const existingIds = new Set(prev.map((s) => s.id));
+          const newItems = clean.filter((s) => !existingIds.has(s.id));
+          return [...prev, ...newItems];
+        });
+      } else {
+        setRecentSales(clean);
+      }
+      setSalesPage(meta.page);
+      setHasMoreSales(meta.hasMore);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Unable to load sales records."));
+    } finally {
+      setLoadingSales(false);
+      setLoadingMoreSales(false);
+    }
+  }
+
+  const handleLoadMoreSales = () => {
+    if (loadingMoreSales || !hasMoreSales) return;
+    loadSalesPage(salesPage + 1, true);
+  };
 
   useEffect(() => {
     loadInitialData();
@@ -1029,20 +1079,26 @@ export default function PosPage() {
               </div>
               <button
                 className="btn btn-sm btn-outline"
-                onClick={() => {
-                  getSales().then((r) => {
-                    const raw = r.data?.data || r.data || [];
-                    setRecentSales(Array.isArray(raw) ? raw : []);
-                  });
-                }}
+                onClick={() => loadSalesPage(0, false)}
+                disabled={loadingSales || loadingMoreSales}
                 title="Refresh bills"
               >
-                🔄
+                {loadingSales ? "⏳" : "🔄"}
               </button>
             </div>
 
-            {/* Bills List Scroll */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+            {/* Bills List Scroll (Supports infinite scroll & Load More) */}
+            <div
+              style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}
+              onScroll={(e) => {
+                const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+                if (scrollHeight - scrollTop - clientHeight < 80) {
+                  if (hasMoreSales && !loadingMoreSales && !loadingSales) {
+                    loadSalesPage(salesPage + 1, true);
+                  }
+                }
+              }}
+            >
               {recentSales.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--mute)" }}>
                   <div style={{ fontSize: "42px", marginBottom: "12px" }}>🧾</div>
@@ -1234,6 +1290,54 @@ export default function PosPage() {
                       </div>
                     );
                   })}
+
+                  {/* Load More & Infinite Scroll Status */}
+                  {hasMoreSales && (
+                    <div style={{ textAlign: "center", marginTop: "12px", marginBottom: "8px" }}>
+                      <button
+                        className="btn btn-outline"
+                        onClick={handleLoadMoreSales}
+                        disabled={loadingMoreSales}
+                        style={{
+                          width: "100%",
+                          justifyContent: "center",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          padding: "10px 16px",
+                          borderRadius: "8px",
+                          fontSize: "13px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {loadingMoreSales ? (
+                          <>
+                            <span>⏳ Loading page {salesPage + 2}...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>⬇️ Load More Bills</span>
+                            <span style={{ fontSize: "11.5px", color: "var(--mute)" }}>
+                              (Page {salesPage + 2} • 25 more)
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {!hasMoreSales && recentSales.length > 0 && (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        padding: "12px 0 6px",
+                        fontSize: "12px",
+                        color: "var(--mute)",
+                      }}
+                    >
+                      ✓ All {recentSales.length} bills loaded
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1247,23 +1351,42 @@ export default function PosPage() {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
+                flexWrap: "wrap",
+                gap: "8px",
               }}
             >
-              <Link
-                to="/returns"
-                className="btn btn-outline"
-                style={{ fontSize: "13px" }}
-                onClick={() => setRecentBillsDrawerOpen(false)}
-              >
-                📑 Full Bills Ledger
-              </Link>
-              <button
-                className="btn btn-outline"
-                style={{ fontSize: "13px" }}
-                onClick={() => setRecentBillsDrawerOpen(false)}
-              >
-                Close
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "12px", color: "var(--mute)" }}>
+                  Loaded: <strong>{recentSales.length}</strong> bills {hasMoreSales ? `(Page ${salesPage + 1})` : ""}
+                </span>
+                {hasMoreSales && (
+                  <button
+                    className="btn btn-sm btn-outline"
+                    onClick={handleLoadMoreSales}
+                    disabled={loadingMoreSales}
+                    style={{ fontSize: "11.5px", padding: "2px 8px" }}
+                  >
+                    {loadingMoreSales ? "Loading..." : "Load Next 25"}
+                  </button>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <Link
+                  to="/returns"
+                  className="btn btn-outline"
+                  style={{ fontSize: "13px" }}
+                  onClick={() => setRecentBillsDrawerOpen(false)}
+                >
+                  📑 Full Ledger
+                </Link>
+                <button
+                  className="btn btn-outline"
+                  style={{ fontSize: "13px" }}
+                  onClick={() => setRecentBillsDrawerOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

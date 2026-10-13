@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { getSales, posGetSale, downloadInvoice } from "../../api/posApi";
+import { getSales, posGetSale, downloadInvoice, parsePaginationHeaders } from "../../api/posApi";
 import { listReturns, returnSale } from "../../api/returnApi";
 import { getApiErrorMessage } from "../../api/apiError";
 import { newIdempotencyKey } from "../../api/idempotency";
@@ -33,6 +33,11 @@ export default function ReturnsPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
+  // Server Pagination state for POS sales
+  const [salesPage, setSalesPage] = useState(0);
+  const [hasMoreSales, setHasMoreSales] = useState(false);
+  const [loadingMoreSales, setLoadingMoreSales] = useState(false);
+
   // ================= 1. BILLS / SALES SEARCH & FILTER =================
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL"); // 'ALL' | 'COMPLETED' | 'RETURNED'
@@ -61,13 +66,16 @@ export default function ReturnsPage() {
     setError("");
     try {
       const [salesRes, returnsRes] = await Promise.allSettled([
-        getSales(),
+        getSales(0, 25),
         listReturns(),
       ]);
 
       if (salesRes.status === "fulfilled") {
         const raw = salesRes.value.data?.data || salesRes.value.data || [];
         setSales(Array.isArray(raw) ? raw : []);
+        const meta = parsePaginationHeaders(salesRes.value?.headers);
+        setSalesPage(meta.page);
+        setHasMoreSales(meta.hasMore);
       }
 
       if (returnsRes.status === "fulfilled") {
@@ -78,6 +86,31 @@ export default function ReturnsPage() {
       setError(getApiErrorMessage(err, "Unable to load sales and return records."));
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Load more bills from server when X-Has-More is true
+  async function handleLoadMoreSales() {
+    if (loadingMoreSales || !hasMoreSales) return;
+    setLoadingMoreSales(true);
+    try {
+      const nextPage = salesPage + 1;
+      const res = await getSales(nextPage, 25);
+      const raw = res.data?.data || res.data || [];
+      const newItems = Array.isArray(raw) ? raw : [];
+      const meta = parsePaginationHeaders(res.headers);
+
+      setSales((prev) => {
+        const existingIds = new Set(prev.map((s) => s.id));
+        const filteredNew = newItems.filter((s) => !existingIds.has(s.id));
+        return [...prev, ...filteredNew];
+      });
+      setSalesPage(meta.page);
+      setHasMoreSales(meta.hasMore);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to load more bills from server."));
+    } finally {
+      setLoadingMoreSales(false);
     }
   }
 
@@ -634,11 +667,34 @@ export default function ReturnsPage() {
           </div>
 
           {/* Pagination Controls */}
-          <div className="pagination-controls">
-            <div>
-              Showing {(currentPage - 1) * pageSize + 1} to{" "}
-              {Math.min(currentPage * pageSize, filteredSales.length)} of{" "}
-              {filteredSales.length} bills
+          <div className="pagination-controls" style={{ flexWrap: "wrap", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+              <span>
+                Showing {(currentPage - 1) * pageSize + 1} to{" "}
+                {Math.min(currentPage * pageSize, filteredSales.length)} of{" "}
+                {filteredSales.length} loaded bills
+              </span>
+              {hasMoreSales && (
+                <button
+                  className="btn btn-sm btn-tonal"
+                  onClick={handleLoadMoreSales}
+                  disabled={loadingMoreSales}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px" }}
+                  title="Backend has more sales records. Click to fetch next 25."
+                >
+                  {loadingMoreSales ? (
+                    <>
+                      <span>⏳</span>
+                      <span>Loading page {salesPage + 2}...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>⬇️</span>
+                      <span>Load Next 25 from Server (Page {salesPage + 2})</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>

@@ -82,7 +82,7 @@ export default function SmallShopPage() {
       const [pRes, cRes, sRes] = await Promise.allSettled([
         getProducts(),
         getClosings(),
-        getSales(),
+        getSales(0, 100),
       ]);
       const rawProducts = pRes.status === "fulfilled" ? (pRes.value.data?.data || pRes.value.data || []) : [];
       const rawClosings = cRes.status === "fulfilled" ? (cRes.value.data?.data || cRes.value.data || []) : [];
