@@ -16,6 +16,12 @@ import {
 } from "../../api/closingApi";
 import { getSales } from "../../api/posApi";
 import { listCustomers, getLedger } from "../../api/customerApi";
+import {
+  getCached,
+  setCached,
+  CACHE_KEYS,
+  TTL,
+} from "../../services/cacheService";
 
 function formatMoney(n) {
   return `₹${Number(n || 0).toLocaleString("en-IN", {
@@ -32,9 +38,13 @@ export default function SmallShopPage() {
   const isBothMode = user?.operatingMode === "BOTH";
   const isLargeMode = user?.operatingMode === "LARGE" || user?.operatingMode === "BOTH";
 
+  // Fast L1/L2 Cache Initializers (0ms instant mount)
+  const cachedProds = getCached(CACHE_KEYS.PRODUCTS)?.data;
+  const cachedClosings = getCached(CACHE_KEYS.CLOSINGS)?.data;
+
   const [date, setDate] = useState(todayStr);
-  const [products, setProducts] = useState([]);
-  const [closings, setClosings] = useState([]);
+  const [products, setProducts] = useState(() => (Array.isArray(cachedProds) ? cachedProds : []));
+  const [closings, setClosings] = useState(() => (Array.isArray(cachedClosings) ? cachedClosings : []));
   const [sales, setSales] = useState([]);
   const [currentClosing, setCurrentClosing] = useState(null);
   const [unlockedForEdit, setUnlockedForEdit] = useState(false);
@@ -57,7 +67,7 @@ export default function SmallShopPage() {
   });
 
   // UI state
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedProds || cachedProds.length === 0);
   const [saving, setSaving] = useState(false);
   const [syncingPos, setSyncingPos] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
@@ -66,7 +76,7 @@ export default function SmallShopPage() {
 
   // Load products, closings, and POS sales
   async function loadData() {
-    setLoading(true);
+    if (products.length === 0) setLoading(true);
     setError("");
     try {
       const [pRes, cRes, sRes] = await Promise.allSettled([
@@ -78,9 +88,14 @@ export default function SmallShopPage() {
       const rawClosings = cRes.status === "fulfilled" ? (cRes.value.data?.data || cRes.value.data || []) : [];
       const rawSales = sRes.status === "fulfilled" ? (sRes.value.data?.data || sRes.value.data || []) : [];
 
-      setProducts(Array.isArray(rawProducts) ? rawProducts : []);
-      setClosings(Array.isArray(rawClosings) ? rawClosings : []);
+      const prodsArr = Array.isArray(rawProducts) ? rawProducts : [];
+      const closingsArr = Array.isArray(rawClosings) ? rawClosings : [];
+      setProducts(prodsArr);
+      setClosings(closingsArr);
       setSales(Array.isArray(rawSales) ? rawSales : []);
+
+      if (prodsArr.length > 0) setCached(CACHE_KEYS.PRODUCTS, prodsArr, TTL.PRODUCTS);
+      if (closingsArr.length > 0) setCached(CACHE_KEYS.CLOSINGS, closingsArr, 5 * 60 * 1000);
     } catch (err) {
       setError(getApiErrorMessage(err, "Unable to load shop items or closings."));
     } finally {

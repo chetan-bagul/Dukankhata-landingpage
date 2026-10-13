@@ -9,6 +9,13 @@ import { getApiErrorMessage } from "../../api/apiError";
 import { useAuth } from "../../context/AuthContext";
 import InvoicePreviewModal from "../../components/documents/InvoicePreviewModal";
 import { printInvoiceDocument } from "../../utils/printInvoice";
+import {
+  getCached,
+  setCached,
+  CACHE_KEYS,
+  TTL,
+  buildProductBarcodeIndex,
+} from "../../services/cacheService";
 
 function formatMoney(n) {
   return `₹${Number(n || 0).toLocaleString("en-IN", {
@@ -22,15 +29,20 @@ export default function PosPage() {
   const searchInputRef = useRef(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
+  // Fast L1/L2 Cache Initializers (0ms instant UI mount)
+  const cachedProds = getCached(CACHE_KEYS.PRODUCTS)?.data;
+  const cachedCusts = getCached(CACHE_KEYS.CUSTOMERS)?.data;
+  const cachedStaff = getCached(CACHE_KEYS.STAFF)?.data;
+
   // Data states
-  const [products, setProducts] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [staff, setStaff] = useState([]);
+  const [products, setProducts] = useState(() => (Array.isArray(cachedProds) ? cachedProds : []));
+  const [customers, setCustomers] = useState(() => (Array.isArray(cachedCusts) ? cachedCusts : []));
+  const [staff, setStaff] = useState(() => (Array.isArray(cachedStaff) ? cachedStaff : []));
   const [recentSales, setRecentSales] = useState([]);
   const [recentBillsDrawerOpen, setRecentBillsDrawerOpen] = useState(false);
   const [recentBillsSearch, setRecentBillsSearch] = useState("");
   const [previewSale, setPreviewSale] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedProds || cachedProds.length === 0);
 
   // Catalog search & filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -66,7 +78,10 @@ export default function PosPage() {
 
   // Load catalog, customers, staff, and recent sales
   async function loadInitialData() {
-    setLoading(true);
+    const hasCache = getCached(CACHE_KEYS.PRODUCTS)?.data?.length > 0;
+    if (!hasCache) {
+      setLoading(true);
+    }
     setError("");
     try {
       const [prodRes, custRes, staffRes, salesRes] = await Promise.allSettled([
@@ -81,10 +96,20 @@ export default function PosPage() {
       const rawStaff = staffRes.status === "fulfilled" ? (staffRes.value.data?.data || staffRes.value.data || []) : [];
       const rawSales = salesRes.status === "fulfilled" ? (salesRes.value.data?.data || salesRes.value.data || []) : [];
 
-      setProducts(Array.isArray(rawProducts) ? rawProducts : []);
-      setCustomers(Array.isArray(rawCustomers) ? rawCustomers : []);
-      setStaff(Array.isArray(rawStaff) ? rawStaff : []);
-      setRecentSales(Array.isArray(rawSales) ? rawSales : []);
+      const cleanProds = Array.isArray(rawProducts) ? rawProducts : [];
+      const cleanCusts = Array.isArray(rawCustomers) ? rawCustomers : [];
+      const cleanStaff = Array.isArray(rawStaff) ? rawStaff : [];
+      const cleanSales = Array.isArray(rawSales) ? rawSales : [];
+
+      setProducts(cleanProds);
+      setCustomers(cleanCusts);
+      setStaff(cleanStaff);
+      setRecentSales(cleanSales);
+
+      // Cache datasets for instant sub-millisecond reuse
+      if (cleanProds.length > 0) setCached(CACHE_KEYS.PRODUCTS, cleanProds, TTL.PRODUCTS);
+      if (cleanCusts.length > 0) setCached(CACHE_KEYS.CUSTOMERS, cleanCusts, TTL.CUSTOMERS);
+      if (cleanStaff.length > 0) setCached(CACHE_KEYS.STAFF, cleanStaff, TTL.STAFF);
     } catch (err) {
       setError(getApiErrorMessage(err, "Unable to load products or customers."));
     } finally {

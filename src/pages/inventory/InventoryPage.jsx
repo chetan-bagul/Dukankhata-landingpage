@@ -9,6 +9,12 @@ import {
   getStockHistory,
 } from "../../api/inventoryApi";
 import { getApiErrorMessage } from "../../api/apiError";
+import {
+  getCached,
+  setCached,
+  CACHE_KEYS,
+  TTL,
+} from "../../services/cacheService";
 
 function formatMoney(n) {
   return `₹${Number(n || 0).toLocaleString("en-IN", {
@@ -21,10 +27,14 @@ export default function InventoryPage() {
   const { user } = useAuth();
   const isOwner = user?.role === "OWNER";
 
+  // Fast L1/L2 Cache Initializer (0ms instant mount)
+  const cachedProds = getCached(CACHE_KEYS.PRODUCTS)?.data;
+  const initialProducts = Array.isArray(cachedProds) ? cachedProds : [];
+
   // Data states
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState(() => initialProducts);
   const [lowStockList, setLowStockList] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => initialProducts.length === 0);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -54,7 +64,7 @@ export default function InventoryPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   async function loadInventoryData() {
-    setLoading(true);
+    if (products.length === 0) setLoading(true);
     setError("");
     try {
       const [prodRes, lowRes] = await Promise.all([
@@ -65,8 +75,10 @@ export default function InventoryPage() {
       const rawProducts = prodRes.data?.data || prodRes.data || [];
       const rawLow = lowRes.data?.data || lowRes.data || [];
 
-      setProducts(Array.isArray(rawProducts) ? rawProducts : []);
+      const prods = Array.isArray(rawProducts) ? rawProducts : [];
+      setProducts(prods);
       setLowStockList(Array.isArray(rawLow) ? rawLow : []);
+      if (prods.length > 0) setCached(CACHE_KEYS.PRODUCTS, prods, TTL.PRODUCTS);
     } catch (err) {
       setError(getApiErrorMessage(err, "Unable to load inventory records."));
     } finally {

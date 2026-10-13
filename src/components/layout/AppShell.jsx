@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import BrandLogo from "../common/BrandLogo";
+import { prefetchRoute } from "../../services/cacheService";
 
 export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
   const { user, logout, enableUdhar, enableStaff } = useAuth();
@@ -163,6 +164,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
             <div className="sidebar-nav-list">
               <NavLink
                 to="/dashboard"
+                onMouseEnter={() => prefetchRoute(() => import("../../pages/dashboard/DashboardPage"))}
+                onTouchStart={() => prefetchRoute(() => import("../../pages/dashboard/DashboardPage"))}
                 className={({ isActive }) =>
                   `sidebar-nav-item ${isActive ? "active" : ""}`
                 }
@@ -183,6 +186,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
               <div className="sidebar-nav-list">
                 <NavLink
                   to="/small-shop"
+                  onMouseEnter={() => prefetchRoute(() => import("../../pages/small-shop/SmallShopPage"))}
+                  onTouchStart={() => prefetchRoute(() => import("../../pages/small-shop/SmallShopPage"))}
                   className={({ isActive }) =>
                     `sidebar-nav-item ${isActive ? "active" : ""}`
                   }
@@ -193,6 +198,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
                 </NavLink>
                 <NavLink
                   to="/reports"
+                  onMouseEnter={() => prefetchRoute(() => import("../../pages/reports/ReportsPage"))}
+                  onTouchStart={() => prefetchRoute(() => import("../../pages/reports/ReportsPage"))}
                   className={({ isActive }) =>
                     `sidebar-nav-item ${isActive ? "active" : ""}`
                   }
@@ -214,6 +221,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
               <div className="sidebar-nav-list">
                 <NavLink
                   to="/pos"
+                  onMouseEnter={() => prefetchRoute(() => import("../../pages/pos/PosPage"))}
+                  onTouchStart={() => prefetchRoute(() => import("../../pages/pos/PosPage"))}
                   className={({ isActive }) =>
                     `sidebar-nav-item ${isActive ? "active" : ""}`
                   }
@@ -224,6 +233,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
                 </NavLink>
                 <NavLink
                   to="/products"
+                  onMouseEnter={() => prefetchRoute(() => import("../../pages/products/ProductsPage"))}
+                  onTouchStart={() => prefetchRoute(() => import("../../pages/products/ProductsPage"))}
                   className={({ isActive }) =>
                     `sidebar-nav-item ${isActive ? "active" : ""}`
                   }
@@ -234,6 +245,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
                 </NavLink>
                 <NavLink
                   to="/inventory"
+                  onMouseEnter={() => prefetchRoute(() => import("../../pages/inventory/InventoryPage"))}
+                  onTouchStart={() => prefetchRoute(() => import("../../pages/inventory/InventoryPage"))}
                   className={({ isActive }) =>
                     `sidebar-nav-item ${isActive ? "active" : ""}`
                   }
@@ -244,6 +257,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
                 </NavLink>
                 <NavLink
                   to="/purchases"
+                  onMouseEnter={() => prefetchRoute(() => import("../../pages/purchases/PurchasesPage"))}
+                  onTouchStart={() => prefetchRoute(() => import("../../pages/purchases/PurchasesPage"))}
                   className={({ isActive }) =>
                     `sidebar-nav-item ${isActive ? "active" : ""}`
                   }
@@ -254,6 +269,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
                 </NavLink>
                 <NavLink
                   to="/returns"
+                  onMouseEnter={() => prefetchRoute(() => import("../../pages/returns/ReturnsPage"))}
+                  onTouchStart={() => prefetchRoute(() => import("../../pages/returns/ReturnsPage"))}
                   className={({ isActive }) =>
                     `sidebar-nav-item ${isActive ? "active" : ""}`
                   }
@@ -264,6 +281,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
                 </NavLink>
                 <NavLink
                   to="/small-shop"
+                  onMouseEnter={() => prefetchRoute(() => import("../../pages/small-shop/SmallShopPage"))}
+                  onTouchStart={() => prefetchRoute(() => import("../../pages/small-shop/SmallShopPage"))}
                   className={({ isActive }) =>
                     `sidebar-nav-item ${isActive ? "active" : ""}`
                   }
@@ -285,6 +304,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
               {enableUdhar && (
                 <NavLink
                   to="/customers"
+                  onMouseEnter={() => prefetchRoute(() => import("../../pages/customers/CustomersPage"))}
+                  onTouchStart={() => prefetchRoute(() => import("../../pages/customers/CustomersPage"))}
                   className={({ isActive }) =>
                     `sidebar-nav-item ${isActive ? "active" : ""}`
                   }
@@ -299,6 +320,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
                 <>
                   <NavLink
                     to="/finance"
+                    onMouseEnter={() => prefetchRoute(() => import("../../pages/finance/FinancePage"))}
+                    onTouchStart={() => prefetchRoute(() => import("../../pages/finance/FinancePage"))}
                     className={({ isActive }) =>
                       `sidebar-nav-item ${isActive ? "active" : ""}`
                     }
@@ -310,6 +333,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
                   {enableStaff && (
                     <NavLink
                       to="/staff"
+                      onMouseEnter={() => prefetchRoute(() => import("../../pages/staff/StaffPage"))}
+                      onTouchStart={() => prefetchRoute(() => import("../../pages/staff/StaffPage"))}
                       className={({ isActive }) =>
                         `sidebar-nav-item ${isActive ? "active" : ""}`
                       }
@@ -324,6 +349,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
 
               <NavLink
                 to="/shop-settings"
+                onMouseEnter={() => prefetchRoute(() => import("../../pages/shop/ShopSettingsPage"))}
+                onTouchStart={() => prefetchRoute(() => import("../../pages/shop/ShopSettingsPage"))}
                 className={({ isActive }) =>
                   `sidebar-nav-item ${isActive ? "active" : ""}`
                 }
@@ -344,6 +371,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
               <div className="sidebar-nav-list">
                 <NavLink
                   to="/team"
+                  onMouseEnter={() => prefetchRoute(() => import("../../pages/team/TeamPage"))}
+                  onTouchStart={() => prefetchRoute(() => import("../../pages/team/TeamPage"))}
                   className={({ isActive }) =>
                     `sidebar-nav-item ${isActive ? "active" : ""}`
                   }
@@ -354,6 +383,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
                 </NavLink>
                 <NavLink
                   to="/notifications"
+                  onMouseEnter={() => prefetchRoute(() => import("../../pages/notifications/NotificationsPage"))}
+                  onTouchStart={() => prefetchRoute(() => import("../../pages/notifications/NotificationsPage"))}
                   className={({ isActive }) =>
                     `sidebar-nav-item ${isActive ? "active" : ""}`
                   }
@@ -364,6 +395,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
                 </NavLink>
                 <NavLink
                   to="/audit"
+                  onMouseEnter={() => prefetchRoute(() => import("../../pages/audit/AuditPage"))}
+                  onTouchStart={() => prefetchRoute(() => import("../../pages/audit/AuditPage"))}
                   className={({ isActive }) =>
                     `sidebar-nav-item ${isActive ? "active" : ""}`
                   }
@@ -374,6 +407,8 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
                 </NavLink>
                 <NavLink
                   to="/subscription"
+                  onMouseEnter={() => prefetchRoute(() => import("../../pages/subscription/SubscriptionPage"))}
+                  onTouchStart={() => prefetchRoute(() => import("../../pages/subscription/SubscriptionPage"))}
                   className={({ isActive }) =>
                     `sidebar-nav-item ${isActive ? "active" : ""}`
                   }

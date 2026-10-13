@@ -11,6 +11,12 @@ import {
 } from "../../api/staffApi";
 import { getApiErrorMessage } from "../../api/apiError";
 import { newIdempotencyKey } from "../../api/idempotency";
+import {
+  getCached,
+  setCached,
+  CACHE_KEYS,
+  TTL,
+} from "../../services/cacheService";
 
 function formatMoney(n) {
   return `₹${Number(n || 0).toLocaleString("en-IN", {
@@ -23,11 +29,15 @@ export default function StaffPage() {
   const { user } = useAuth();
   const isOwner = user?.role === "OWNER" || user?.role === "ADMIN";
 
+  // Fast L1/L2 Cache Initializer (0ms instant mount)
+  const cachedStaff = getCached(CACHE_KEYS.STAFF)?.data;
+  const initialStaff = Array.isArray(cachedStaff) ? cachedStaff : [];
+
   // Data states
-  const [staffList, setStaffList] = useState([]);
-  const [selectedStaff, setSelectedStaff] = useState(null);
+  const [staffList, setStaffList] = useState(() => initialStaff);
+  const [selectedStaff, setSelectedStaff] = useState(() => initialStaff[0] || null);
   const [staffLedger, setStaffLedger] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => initialStaff.length === 0);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -57,13 +67,14 @@ export default function StaffPage() {
 
   // Load staff list
   async function loadStaffData(keepSelectedId = null) {
-    setLoading(true);
+    if (staffList.length === 0) setLoading(true);
     setError("");
     try {
       const res = await listStaff();
       const raw = res.data?.data || res.data || [];
       const clean = Array.isArray(raw) ? raw : [];
       setStaffList(clean);
+      if (clean.length > 0) setCached(CACHE_KEYS.STAFF, clean, TTL.STAFF);
 
       const targetId = keepSelectedId || selectedStaff?.id;
       if (targetId) {

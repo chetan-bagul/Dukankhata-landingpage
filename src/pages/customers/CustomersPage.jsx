@@ -12,6 +12,12 @@ import {
 } from "../../api/customerApi";
 import { getApiErrorMessage } from "../../api/apiError";
 import { newIdempotencyKey } from "../../api/idempotency";
+import {
+  getCached,
+  setCached,
+  CACHE_KEYS,
+  TTL,
+} from "../../services/cacheService";
 
 function formatMoney(n) {
   const abs = Math.abs(Number(n || 0));
@@ -39,11 +45,15 @@ export default function CustomersPage() {
   const { user } = useAuth();
   const isOwner = user?.role === "OWNER" || user?.role === "ADMIN";
 
+  // Fast L1/L2 Cache Initializer (0ms instant mount)
+  const cachedCusts = getCached(CACHE_KEYS.CUSTOMERS)?.data;
+  const initialCustomers = Array.isArray(cachedCusts) ? cachedCusts : [];
+
   // Data states
-  const [customers, setCustomers] = useState([]);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customers, setCustomers] = useState(() => initialCustomers);
+  const [selectedCustomer, setSelectedCustomer] = useState(() => initialCustomers[0] || null);
   const [ledgerEntries, setLedgerEntries] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => initialCustomers.length === 0);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -76,7 +86,7 @@ export default function CustomersPage() {
 
   // Load Customers
   async function loadCustomersData(keepSelectedId = null) {
-    setLoading(true);
+    if (customers.length === 0) setLoading(true);
     setError("");
     try {
       const data = await listCustomers();
@@ -84,6 +94,7 @@ export default function CustomersPage() {
         ? data
         : data?.data || data?.customers || [];
       setCustomers(rawList);
+      setCached(CACHE_KEYS.CUSTOMERS, rawList, TTL.CUSTOMERS);
 
       const targetId = keepSelectedId || selectedCustomer?.id;
       if (targetId) {

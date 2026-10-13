@@ -8,6 +8,12 @@ import {
   deactivateProduct,
 } from "../../api/productApi";
 import { getApiErrorMessage } from "../../api/apiError";
+import {
+  getCached,
+  setCached,
+  CACHE_KEYS,
+  TTL,
+} from "../../services/cacheService";
 
 function formatMoney(n) {
   return `₹${Number(n || 0).toLocaleString("en-IN", {
@@ -33,9 +39,13 @@ export default function ProductsPage() {
   const { user } = useAuth();
   const isOwner = user?.role === "OWNER";
 
+  // Fast L1/L2 Cache Initializer (0ms instant mount)
+  const cachedProds = getCached(CACHE_KEYS.PRODUCTS)?.data;
+  const initialProducts = Array.isArray(cachedProds) ? cachedProds : [];
+
   // Data states
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState(() => initialProducts);
+  const [loading, setLoading] = useState(() => initialProducts.length === 0);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -54,12 +64,14 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
 
   async function loadProducts() {
-    setLoading(true);
+    if (products.length === 0) setLoading(true);
     setError("");
     try {
       const res = await getProducts();
       const raw = res.data?.data || res.data || [];
-      setProducts(Array.isArray(raw) ? raw : []);
+      const prods = Array.isArray(raw) ? raw : [];
+      setProducts(prods);
+      if (prods.length > 0) setCached(CACHE_KEYS.PRODUCTS, prods, TTL.PRODUCTS);
     } catch (err) {
       setError(getApiErrorMessage(err, "Unable to load products catalog."));
     } finally {
