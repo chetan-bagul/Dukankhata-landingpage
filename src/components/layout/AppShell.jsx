@@ -84,7 +84,7 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
       {/* Mobile Drawer Overlay Backdrop */}
       {mobileDrawerOpen && (
         <div
-          className="mobile-drawer-overlay"
+          className="app-sidebar-backdrop"
           onClick={() => setMobileDrawerOpen(false)}
           aria-hidden="true"
         ></div>
@@ -109,6 +109,7 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
             )}
           </Link>
 
+          {/* Desktop Collapse Button */}
           <button
             className="sidebar-collapse-btn"
             onClick={toggleSidebar}
@@ -121,6 +122,19 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
               ) : (
                 <polyline points="15 18 9 12 15 6"></polyline>
               )}
+            </svg>
+          </button>
+
+          {/* Mobile Close Drawer Button */}
+          <button
+            className="sidebar-mobile-close-btn"
+            onClick={() => setMobileDrawerOpen(false)}
+            aria-label="Close sidebar navigation"
+            title="Close navigation"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
         </div>

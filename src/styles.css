@@ -3564,6 +3564,33 @@ nav {
   color: var(--brand);
 }
 
+.sidebar-mobile-close-btn {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-xs);
+  align-items: center;
+  justify-content: center;
+  color: var(--deep);
+  background: var(--surface-low);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-mobile-close-btn:hover {
+  background: var(--surface-mid);
+}
+
+.app-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 1090;
+  animation: fadeIn 0.15s ease-out;
+}
+
 .sidebar-mode-badge-box {
   padding: 12px 16px;
   background: var(--surface-low);
@@ -3967,12 +3994,15 @@ nav {
 @media (max-width: 1024px) {
   .app-sidebar {
     position: fixed;
-    left: -280px;
+    left: -290px;
     top: 0;
     bottom: 0;
+    width: 280px;
+    max-width: 85vw;
     height: 100vh;
-    box-shadow: var(--shadow-xl);
-    z-index: 250;
+    background: #FFFFFF !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+    z-index: 1100;
     transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
@@ -3986,6 +4016,10 @@ nav {
 
   .sidebar-collapse-btn {
     display: none;
+  }
+
+  .sidebar-mobile-close-btn {
+    display: flex;
   }
 
   .app-top-header {
