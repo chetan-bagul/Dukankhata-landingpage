@@ -1,37 +1,59 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import AppShell from "./components/layout/AppShell";
 import BrandLogo from "./components/common/BrandLogo";
 
-// Public Pages
-import LandingPage from "./pages/LandingPage";
-import LoginPage from "./pages/auth/LoginPage";
-import SignupPage from "./pages/auth/SignupPage";
-import NotFoundPage from "./pages/NotFoundPage";
+// Route-based Code Splitting (Lazy-loaded chunks for instant initial render)
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const LoginPage = lazy(() => import("./pages/auth/LoginPage"));
+const SignupPage = lazy(() => import("./pages/auth/SignupPage"));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
 // Legal & Compliance Pages
-import TermsPage from "./pages/legal/TermsPage";
-import PrivacyPage from "./pages/legal/PrivacyPage";
-import RefundPage from "./pages/legal/RefundPage";
-import GstCompliancePage from "./pages/legal/GstCompliancePage";
+const TermsPage = lazy(() => import("./pages/legal/TermsPage"));
+const PrivacyPage = lazy(() => import("./pages/legal/PrivacyPage"));
+const RefundPage = lazy(() => import("./pages/legal/RefundPage"));
+const GstCompliancePage = lazy(() => import("./pages/legal/GstCompliancePage"));
 
 // Authenticated Pages
-import DashboardPage from "./pages/dashboard/DashboardPage";
-import SmallShopPage from "./pages/small-shop/SmallShopPage";
-import PosPage from "./pages/pos/PosPage";
-import ProductsPage from "./pages/products/ProductsPage";
-import ReportsPage from "./pages/reports/ReportsPage";
-import CustomersPage from "./pages/customers/CustomersPage";
-import InventoryPage from "./pages/inventory/InventoryPage";
-import PurchasesPage from "./pages/purchases/PurchasesPage";
-import ReturnsPage from "./pages/returns/ReturnsPage";
-import FinancePage from "./pages/finance/FinancePage";
-import StaffPage from "./pages/staff/StaffPage";
-import ShopSettingsPage from "./pages/shop/ShopSettingsPage";
-import AuditPage from "./pages/audit/AuditPage";
-import TeamPage from "./pages/team/TeamPage";
-import SubscriptionPage from "./pages/subscription/SubscriptionPage";
-import NotificationsPage from "./pages/notifications/NotificationsPage";
+const DashboardPage = lazy(() => import("./pages/dashboard/DashboardPage"));
+const SmallShopPage = lazy(() => import("./pages/small-shop/SmallShopPage"));
+const PosPage = lazy(() => import("./pages/pos/PosPage"));
+const ProductsPage = lazy(() => import("./pages/products/ProductsPage"));
+const ReportsPage = lazy(() => import("./pages/reports/ReportsPage"));
+const CustomersPage = lazy(() => import("./pages/customers/CustomersPage"));
+const InventoryPage = lazy(() => import("./pages/inventory/InventoryPage"));
+const PurchasesPage = lazy(() => import("./pages/purchases/PurchasesPage"));
+const ReturnsPage = lazy(() => import("./pages/returns/ReturnsPage"));
+const FinancePage = lazy(() => import("./pages/finance/FinancePage"));
+const StaffPage = lazy(() => import("./pages/staff/StaffPage"));
+const ShopSettingsPage = lazy(() => import("./pages/shop/ShopSettingsPage"));
+const AuditPage = lazy(() => import("./pages/audit/AuditPage"));
+const TeamPage = lazy(() => import("./pages/team/TeamPage"));
+const SubscriptionPage = lazy(() => import("./pages/subscription/SubscriptionPage"));
+const NotificationsPage = lazy(() => import("./pages/notifications/NotificationsPage"));
+
+function PageLoader() {
+  return (
+    <div
+      className="loading"
+      style={{
+        minHeight: "60vh",
+        display: "flex",
+        flexDirection: "column",
+        gap: "12px",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <BrandLogo size={42} alt="DukanKhata" />
+      <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--mute)" }}>
+        Loading workspace...
+      </span>
+    </div>
+  );
+}
 
 function Protected({ children, requiredFeature }) {
   const { user, loading, enableUdhar, enableStaff } = useAuth();
@@ -64,7 +86,8 @@ function Protected({ children, requiredFeature }) {
 export default function App() {
   return (
     <AuthProvider>
-      <Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -220,6 +243,7 @@ export default function App() {
         {/* 404 Not Found Route */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-    </AuthProvider>
-  );
+    </Suspense>
+  </AuthProvider>
+);
 }
