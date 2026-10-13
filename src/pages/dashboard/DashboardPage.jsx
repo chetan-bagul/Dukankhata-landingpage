@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { getClosings } from "../../api/closingApi";
@@ -16,7 +16,37 @@ function formatMoney(amount) {
   })}`;
 }
 
-const DASHBOARD_CACHE_KEY = "dk_dash_cache_";
+export function getCustomerBalance(c) {
+  if (!c) return 0;
+  if (c.balance !== undefined && c.balance !== null && !isNaN(Number(c.balance))) {
+    return Number(c.balance);
+  }
+  if (c.currentBalance !== undefined && c.currentBalance !== null && !isNaN(Number(c.currentBalance))) {
+    return Number(c.currentBalance);
+  }
+  if (c.outstandingBalance !== undefined && c.outstandingBalance !== null && !isNaN(Number(c.outstandingBalance))) {
+    return Number(c.outstandingBalance);
+  }
+  return 0;
+}
+
+function isSameDate(dateVal, targetDateStr) {
+  if (!dateVal || !targetDateStr) return false;
+  if (typeof dateVal === "string" && dateVal.startsWith(targetDateStr)) return true;
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return false;
+    const local = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    if (local === targetDateStr) return true;
+    const iso = d.toISOString().slice(0, 10);
+    if (iso === targetDateStr) return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+const DASHBOARD_CACHE_KEY = "dk_dash_cache_v3_";
 
 function getCachedDashboard(date) {
   try {
@@ -37,7 +67,7 @@ function setCachedDashboard(date, data) {
 
 export default function DashboardPage() {
   const { user, enableUdhar, enableStaff } = useAuth();
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const cachedInitial = getCachedDashboard(todayStr);
 
   const [selectedDate, setSelectedDate] = useState(todayStr);
@@ -74,69 +104,80 @@ export default function DashboardPage() {
         enableUdhar ? listCustomers() : Promise.resolve([]),
         showLarge ? getLowStock() : Promise.resolve({ data: [] }),
         showLarge ? getPurchases() : Promise.resolve({ data: [] }),
-        showLarge ? getSales(0, 25) : Promise.resolve({ data: [] }),
+        showLarge ? getSales(0, 50) : Promise.resolve({ data: [] }),
       ]);
 
       // 1. Report Summary
       if (results[0].status === "fulfilled" && results[0].value) {
-        setReportData(results[0].value.summary || null);
+        setReportData(results[0].value?.summary || results[0].value || null);
       } else {
         setReportData(null);
       }
 
       // 2. Financial Summary
       if (results[1].status === "fulfilled" && results[1].value) {
-        setFinanceData(results[1].value.data || null);
+        const rawFinance = results[1].value.data?.data || results[1].value.data || results[1].value;
+        setFinanceData(rawFinance || null);
       } else {
         setFinanceData(null);
       }
 
       // 3. Closings List
       if (results[2].status === "fulfilled" && results[2].value) {
-        const raw = results[2].value.data?.data || results[2].value.data || [];
+        const raw = results[2].value.data?.data || results[2].value.data || results[2].value || [];
         setClosingsList(Array.isArray(raw) ? raw : []);
       }
 
       // 4. Customer Udhar
       if (results[3].status === "fulfilled" && results[3].value) {
-        const customers = Array.isArray(results[3].value) ? results[3].value : [];
-        const totalOutstanding = customers.reduce((acc, c) => {
-          const bal = Number(c.currentBalance || 0);
-          // In DukanKhata, negative balance indicates customer credit/Udhar outstanding
-          return bal < 0 ? acc + Math.abs(bal) : acc;
+        const rawCusts = results[3].value;
+        const customers = Array.isArray(rawCusts)
+          ? rawCusts
+          : rawCusts?.data || rawCusts?.customers || [];
+        const cleanCusts = Array.isArray(customers) ? customers : [];
+
+        const totalOutstanding = cleanCusts.reduce((acc, c) => {
+          const bal = getCustomerBalance(c);
+          if (bal < 0) return acc + Math.abs(bal);
+          if (bal > 0 && (c.hasUdhar || c.type === "UDHAR" || c.isUdhar)) return acc + bal;
+          return acc;
         }, 0);
+
         setCustomerStats({
-          count: customers.length,
+          count: cleanCusts.length,
           totalUdhar: totalOutstanding,
         });
       }
 
       // 5. Low Stock
       if (results[4].status === "fulfilled" && results[4].value) {
-        const items = results[4].value.data?.data || results[4].value.data || [];
+        const resVal = results[4].value;
+        const items = resVal?.data?.data || resVal?.data || resVal || [];
         setLowStockItems(Array.isArray(items) ? items : []);
       }
 
       // 6. Recent Purchases
       if (results[5].status === "fulfilled" && results[5].value) {
-        const purchases = results[5].value.data?.data || results[5].value.data || [];
+        const resVal = results[5].value;
+        const purchases = resVal?.data?.data || resVal?.data || resVal || [];
         setRecentPurchases(Array.isArray(purchases) ? purchases.slice(0, 5) : []);
       }
 
       // 7. POS Sales / Bills (Large Shop Mode)
       if (results[6].status === "fulfilled" && results[6].value) {
-        const sales = results[6].value.data?.data || results[6].value.data || [];
+        const resVal = results[6].value;
+        const sales = resVal?.data?.data || resVal?.data || resVal || [];
         setPosSalesList(Array.isArray(sales) ? sales : []);
       }
 
       // Save fresh metrics into cache for instant 0ms subsequent loads
       setCachedDashboard(selectedDate, {
-        reportData: results[0].status === "fulfilled" && results[0].value ? results[0].value.summary || null : null,
-        financeData: results[1].status === "fulfilled" && results[1].value ? results[1].value.data || null : null,
+        reportData: results[0].status === "fulfilled" && results[0].value ? results[0].value?.summary || results[0].value || null : null,
+        financeData: results[1].status === "fulfilled" && results[1].value ? results[1].value.data?.data || results[1].value.data || results[1].value || null : null,
         closingsList: results[2].status === "fulfilled" && results[2].value ? (Array.isArray(results[2].value.data?.data || results[2].value.data) ? results[2].value.data?.data || results[2].value.data : []) : [],
         customerStats: results[3].status === "fulfilled" && results[3].value ? {
-          count: Array.isArray(results[3].value) ? results[3].value.length : 0,
-          totalUdhar: Array.isArray(results[3].value) ? results[3].value.reduce((acc, c) => acc + (Number(c.balance || c.currentBalance || c.outstandingBalance || 0) > 0 ? Number(c.balance || c.currentBalance || c.outstandingBalance || 0) : 0), 0) : 0,
+          count: Array.isArray(results[3].value?.data || results[3].value) ? (results[3].value?.data || results[3].value).length : 0,
+          totalUdhar: Array.isArray(results[3].value?.data || results[3].value) ? (results[3].value?.data || results[3].value).reduce((acc, c) => acc + (getCustomerBalance(c) < 0 ? Math.abs(getCustomerBalance(c)) : 0), 0) : 0,
         } : { count: 0, totalUdhar: 0 },
         lowStockItems: results[4].status === "fulfilled" && results[4].value ? (Array.isArray(results[4].value.data?.data || results[4].value.data) ? results[4].value.data?.data || results[4].value.data : []) : [],
         recentPurchases: results[5].status === "fulfilled" && results[5].value ? (Array.isArray(results[5].value.data?.data || results[5].value.data) ? (results[5].value.data?.data || results[5].value.data).slice(0, 5) : []) : [],
@@ -153,9 +194,110 @@ export default function DashboardPage() {
     loadDashboardData();
   }, [selectedDate]);
 
+  // Filter POS sales matching selectedDate (or all sales if created today)
+  const posDaySales = useMemo(() => {
+    return (posSalesList || []).filter((s) => {
+      if (s.status === "RETURNED") return false;
+      if (!s.createdAt) return true;
+      return isSameDate(s.createdAt, selectedDate);
+    });
+  }, [posSalesList, selectedDate]);
+
+  // Aggregate metrics from POS sales for selectedDate
+  const posDayMetrics = useMemo(() => {
+    let salesTotal = 0;
+    let cashTotal = 0;
+    let upiTotal = 0;
+    let udharTotal = 0;
+
+    posDaySales.forEach((s) => {
+      salesTotal += Number(s.total || s.totalAmount || 0);
+
+      const cash = Number(
+        s.cashAmount ||
+        s.payments?.find((p) => p.method === "CASH")?.amount ||
+        0
+      );
+      const upi = Number(
+        s.upiAmount ||
+        s.payments?.find((p) => p.method === "UPI")?.amount ||
+        0
+      );
+      const udhar = Number(
+        s.creditAmount ||
+        s.udharAmount ||
+        s.payments?.find((p) => p.method === "UDHAR")?.amount ||
+        0
+      );
+
+      cashTotal += cash;
+      upiTotal += upi;
+      udharTotal += udhar;
+    });
+
+    return {
+      salesTotal,
+      cashTotal,
+      upiTotal,
+      udharTotal,
+      collectionTotal: cashTotal + upiTotal,
+      count: posDaySales.length,
+    };
+  }, [posDaySales]);
+
   // Determine today's closing status
   const todayClosing = closingsList.find((c) => c.businessDate === selectedDate) || closingsList[0];
-  const closingStatus = todayClosing?.status || "PENDING";
+  const closingStatus = todayClosing?.status || (posDayMetrics.count > 0 ? "LIVE POS" : "PENDING");
+
+  // Effective Top-Level Metrics (Combining Register Closing + POS Counter Sales)
+  const todaySalesValue = useMemo(() => {
+    const closingSales = Number(reportData?.expectedSales || todayClosing?.expectedSales || 0);
+    const posSales = posDayMetrics.salesTotal;
+    const finRevenue = Number(financeData?.revenue || financeData?.grossRevenue || financeData?.totalSales || 0);
+
+    if (posSales > 0 && closingSales > 0) return posSales + closingSales;
+    if (posSales > 0) return posSales;
+    if (closingSales > 0) return closingSales;
+    return finRevenue;
+  }, [reportData, todayClosing, posDayMetrics.salesTotal, financeData]);
+
+  const cashCollection = useMemo(() => {
+    const closingCash = Number(reportData?.cash ?? todayClosing?.cash ?? 0);
+    return closingCash + posDayMetrics.cashTotal;
+  }, [reportData, todayClosing, posDayMetrics.cashTotal]);
+
+  const upiCollection = useMemo(() => {
+    const closingUpi = Number(reportData?.upi ?? todayClosing?.upi ?? 0);
+    return closingUpi + posDayMetrics.upiTotal;
+  }, [reportData, todayClosing, posDayMetrics.upiTotal]);
+
+  const totalCollections = useMemo(() => {
+    const directColl = Number(reportData?.actualCollection || 0);
+    if (directColl > 0 && posDayMetrics.collectionTotal === 0) return directColl;
+    return cashCollection + upiCollection;
+  }, [reportData, posDayMetrics.collectionTotal, cashCollection, upiCollection]);
+
+  const totalExpenses = useMemo(() => {
+    const repExp = Number(reportData?.expenses || 0);
+    const finExp = Number(financeData?.otherExpenses || financeData?.expenses || 0);
+    const closingExp = Array.isArray(todayClosing?.expenses)
+      ? todayClosing.expenses.reduce((s, e) => s + Number(e.amount || 0), 0)
+      : Number(todayClosing?.expenses || 0);
+    return Math.max(repExp, finExp, closingExp);
+  }, [reportData, financeData, todayClosing]);
+
+  const netProfitValue = useMemo(() => {
+    const finProfit = Number(financeData?.netProfit || 0);
+    if (finProfit !== 0) return finProfit;
+    const repProfit = Number(reportData?.netProfit || 0);
+    if (repProfit !== 0) return repProfit;
+    return todaySalesValue - totalExpenses;
+  }, [financeData, reportData, todaySalesValue, totalExpenses]);
+
+  // Total Customer Udhar Outstanding
+  const totalUdharDue = useMemo(() => {
+    return customerStats.totalUdhar + (posDayMetrics.udharTotal > 0 ? posDayMetrics.udharTotal : 0);
+  }, [customerStats.totalUdhar, posDayMetrics.udharTotal]);
 
   return (
     <div className="dashboard-container">
@@ -240,27 +382,30 @@ export default function DashboardPage() {
             <span className="metric-icon-badge" aria-hidden="true">💰</span>
           </div>
           <div className="metric-value">
-            {loading ? "..." : formatMoney(reportData?.expectedSales || financeData?.revenue || 0)}
+            {loading ? "..." : formatMoney(todaySalesValue)}
           </div>
           <div className="metric-sub">
             <span>{selectedDate === todayStr ? "Today" : selectedDate}</span>
+            {posDayMetrics.count > 0 && (
+              <span>• {posDayMetrics.count} POS {posDayMetrics.count === 1 ? "bill" : "bills"}</span>
+            )}
             <span>• Tap to view details →</span>
           </div>
         </Link>
 
         {/* Metric 2: Cash & UPI Collections */}
-        <Link to="/reports" className="dashboard-metric-card">
+        <Link to={showLarge ? "/returns" : "/reports"} className="dashboard-metric-card">
           <div className="dashboard-metric-card-top">
             <span className="metric-label">Collections Breakdown</span>
             <span className="metric-icon-badge" aria-hidden="true">⚡</span>
           </div>
           <div className="metric-value" style={{ color: "var(--cash)" }}>
-            {loading ? "..." : formatMoney(reportData?.actualCollection || 0)}
+            {loading ? "..." : formatMoney(totalCollections)}
           </div>
           <div className="metric-sub">
             <span>
-              💵 Cash: {loading ? "..." : formatMoney(reportData?.cash || 0)} • ⚡ UPI:{" "}
-              {loading ? "..." : formatMoney(reportData?.upi || 0)}
+              💵 Cash: {loading ? "..." : formatMoney(cashCollection)} • ⚡ UPI:{" "}
+              {loading ? "..." : formatMoney(upiCollection)}
             </span>
           </div>
         </Link>
@@ -272,11 +417,11 @@ export default function DashboardPage() {
               <span className="metric-label">Customer Udhar Due</span>
               <span className="metric-icon-badge" aria-hidden="true">📒</span>
             </div>
-            <div className="metric-value" style={{ color: customerStats.totalUdhar > 0 ? "var(--orange)" : "var(--deep)" }}>
-              {loading ? "..." : formatMoney(customerStats.totalUdhar)}
+            <div className="metric-value" style={{ color: totalUdharDue > 0 ? "var(--orange)" : "var(--deep)" }}>
+              {loading ? "..." : formatMoney(totalUdharDue)}
             </div>
             <div className="metric-sub">
-              <span>Across {customerStats.count} registered customers →</span>
+              <span>Across {customerStats.count} registered {customerStats.count === 1 ? "customer" : "customers"} →</span>
             </div>
           </Link>
         )}
@@ -288,7 +433,7 @@ export default function DashboardPage() {
             <span className="metric-icon-badge" aria-hidden="true">🧾</span>
           </div>
           <div className="metric-value" style={{ color: "var(--bad)" }}>
-            {loading ? "..." : formatMoney(reportData?.expenses || financeData?.otherExpenses || 0)}
+            {loading ? "..." : formatMoney(totalExpenses)}
           </div>
           <div className="metric-sub">
             <span>Direct day expenses &amp; vendor payouts →</span>
@@ -303,11 +448,15 @@ export default function DashboardPage() {
           <div className="widget-header">
             <h3>
               <span>🧾</span>
-              <span>Daily Reconciliation &amp; Profit</span>
+              <span>
+                {showLarge && mode === "LARGE"
+                  ? "POS Register & Daily Profit"
+                  : "Daily Reconciliation & Profit"}
+              </span>
             </h3>
             <span
               className={`header-chip ${
-                closingStatus === "CLOSED"
+                closingStatus === "CLOSED" || closingStatus === "LIVE POS"
                   ? "active"
                   : closingStatus === "DRAFT"
                   ? "trial"
@@ -321,12 +470,12 @@ export default function DashboardPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px" }}>
               <span className="muted">Expected Counter Sales:</span>
-              <strong>{loading ? "..." : formatMoney(reportData?.expectedSales || 0)}</strong>
+              <strong>{loading ? "..." : formatMoney(todaySalesValue)}</strong>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px" }}>
               <span className="muted">Actual Drawer + UPI Total:</span>
               <strong style={{ color: "var(--cash)" }}>
-                {loading ? "..." : formatMoney(reportData?.actualCollection || 0)}
+                {loading ? "..." : formatMoney(totalCollections)}
               </strong>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px" }}>
@@ -334,11 +483,13 @@ export default function DashboardPage() {
               <strong
                 style={{
                   color:
-                    Number(reportData?.variance || 0) >= 0 ? "var(--cash)" : "var(--bad)",
+                    Number(totalCollections - todaySalesValue + posDayMetrics.udharTotal) >= 0
+                      ? "var(--cash)"
+                      : "var(--bad)",
                 }}
               >
-                {Number(reportData?.variance || 0) >= 0 ? "+" : ""}
-                {loading ? "..." : formatMoney(reportData?.variance || 0)}
+                {Number(totalCollections - todaySalesValue + posDayMetrics.udharTotal) >= 0 ? "+" : ""}
+                {loading ? "..." : formatMoney(totalCollections - todaySalesValue + posDayMetrics.udharTotal)}
               </strong>
             </div>
             <div
@@ -361,18 +512,31 @@ export default function DashboardPage() {
                 </small>
               </div>
               <strong style={{ fontSize: "22px", color: "var(--cash)", fontFamily: "Plus Jakarta Sans" }}>
-                {loading ? "..." : formatMoney(reportData?.netProfit || financeData?.netProfit || 0)}
+                {loading ? "..." : formatMoney(netProfitValue)}
               </strong>
             </div>
           </div>
 
           <div style={{ display: "flex", gap: "10px", marginTop: "auto", paddingTop: "8px" }}>
-            <Link className="btn btn-outline btn-sm" to="/small-shop" style={{ flex: 1 }}>
-              Open Closing Desk
-            </Link>
-            <Link className="btn btn-outline btn-sm" to="/reports" style={{ flex: 1 }}>
-              Historical Reports
-            </Link>
+            {showLarge ? (
+              <>
+                <Link className="btn btn-outline btn-sm" to="/pos" style={{ flex: 1 }}>
+                  🛒 Counter Billing
+                </Link>
+                <Link className="btn btn-outline btn-sm" to="/returns" style={{ flex: 1 }}>
+                  📜 Bills &amp; Invoices
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link className="btn btn-outline btn-sm" to="/small-shop" style={{ flex: 1 }}>
+                  Open Closing Desk
+                </Link>
+                <Link className="btn btn-outline btn-sm" to="/reports" style={{ flex: 1 }}>
+                  Historical Reports
+                </Link>
+              </>
+            )}
           </div>
         </div>
 
