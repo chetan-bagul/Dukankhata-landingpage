@@ -9,6 +9,16 @@ import {
 const AuthContext = createContext(null);
 
 const FEATURES_KEY = "dk_features_config";
+const USER_KEY = "dk_user_profile";
+
+function getStoredUser() {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 function getStoredFeatures() {
   try {
@@ -27,8 +37,13 @@ function getStoredFeatures() {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(getStoredUser);
+  const [loading, setLoading] = useState(() => {
+    const token = localStorage.getItem("dk_access_token");
+    const cachedUser = getStoredUser();
+    // Only block with full-page spinner if we have a token but NO cached user profile
+    return Boolean(token && !cachedUser);
+  });
   const [features, setFeatures] = useState(getStoredFeatures);
 
   const updateFeatures = (newFeatures) => {
@@ -67,6 +82,11 @@ export function AuthProvider({ children }) {
       .then((response) => {
         const userData = response?.data || response?.user || response;
         setUser(userData);
+        try {
+          localStorage.setItem(USER_KEY, JSON.stringify(userData));
+        } catch {
+          // ignore storage error
+        }
         if (userData?.enableUdhar !== undefined || userData?.enableStaff !== undefined) {
           updateFeatures({
             ...(userData.enableUdhar !== undefined ? { enableUdhar: Boolean(userData.enableUdhar) } : {}),
@@ -74,9 +94,13 @@ export function AuthProvider({ children }) {
           });
         }
       })
-      .catch(() => {
-        localStorage.removeItem("dk_access_token");
-        setUser(null);
+      .catch((err) => {
+        // Only invalidate if the token is definitely rejected (401 Unauthorized)
+        if (err?.response?.status === 401) {
+          localStorage.removeItem("dk_access_token");
+          localStorage.removeItem(USER_KEY);
+          setUser(null);
+        }
       })
       .finally(() => setLoading(false));
   }, []);
@@ -102,6 +126,11 @@ export function AuthProvider({ children }) {
       response;
 
     setUser(userData);
+    try {
+      localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    } catch {
+      // ignore storage error
+    }
     if (userData?.enableUdhar !== undefined || userData?.enableStaff !== undefined) {
       updateFeatures({
         ...(userData.enableUdhar !== undefined ? { enableUdhar: Boolean(userData.enableUdhar) } : {}),
@@ -113,6 +142,7 @@ export function AuthProvider({ children }) {
 
   async function signup(payload) {
     localStorage.removeItem("dk_access_token");
+    localStorage.removeItem(USER_KEY);
 
     const response = await signupApi(payload);
     const token =
@@ -132,6 +162,11 @@ export function AuthProvider({ children }) {
       response;
 
     setUser(userData);
+    try {
+      localStorage.setItem(USER_KEY, JSON.stringify(userData));
+    } catch {
+      // ignore storage error
+    }
     return userData;
   }
 
@@ -142,6 +177,8 @@ export function AuthProvider({ children }) {
       // Ignore if session already closed on server
     } finally {
       localStorage.removeItem("dk_access_token");
+      localStorage.removeItem(USER_KEY);
+      sessionStorage.clear();
       setUser(null);
     }
   }

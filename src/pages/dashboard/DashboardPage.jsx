@@ -16,22 +16,42 @@ function formatMoney(amount) {
   })}`;
 }
 
+const DASHBOARD_CACHE_KEY = "dk_dash_cache_";
+
+function getCachedDashboard(date) {
+  try {
+    const raw = sessionStorage.getItem(DASHBOARD_CACHE_KEY + date);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedDashboard(date, data) {
+  try {
+    sessionStorage.setItem(DASHBOARD_CACHE_KEY + date, JSON.stringify(data));
+  } catch {
+    // ignore storage error
+  }
+}
+
 export default function DashboardPage() {
   const { user, enableUdhar, enableStaff } = useAuth();
   const todayStr = new Date().toISOString().slice(0, 10);
+  const cachedInitial = getCachedDashboard(todayStr);
 
   const [selectedDate, setSelectedDate] = useState(todayStr);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedInitial);
   const [error, setError] = useState("");
 
-  // Real API Data States
-  const [reportData, setReportData] = useState(null);
-  const [financeData, setFinanceData] = useState(null);
-  const [closingsList, setClosingsList] = useState([]);
-  const [customerStats, setCustomerStats] = useState({ count: 0, totalUdhar: 0 });
-  const [lowStockItems, setLowStockItems] = useState([]);
-  const [recentPurchases, setRecentPurchases] = useState([]);
-  const [posSalesList, setPosSalesList] = useState([]);
+  // Real API Data States (instant zero-lag initial render from cache)
+  const [reportData, setReportData] = useState(() => cachedInitial?.reportData || null);
+  const [financeData, setFinanceData] = useState(() => cachedInitial?.financeData || null);
+  const [closingsList, setClosingsList] = useState(() => cachedInitial?.closingsList || []);
+  const [customerStats, setCustomerStats] = useState(() => cachedInitial?.customerStats || { count: 0, totalUdhar: 0 });
+  const [lowStockItems, setLowStockItems] = useState(() => cachedInitial?.lowStockItems || []);
+  const [recentPurchases, setRecentPurchases] = useState(() => cachedInitial?.recentPurchases || []);
+  const [posSalesList, setPosSalesList] = useState(() => cachedInitial?.posSalesList || []);
 
   const mode = user?.operatingMode || "BOTH";
   const isOwner = user?.role === "OWNER";
@@ -39,7 +59,10 @@ export default function DashboardPage() {
   const showLarge = mode === "LARGE" || mode === "BOTH";
 
   async function loadDashboardData() {
-    setLoading(true);
+    const cached = getCachedDashboard(selectedDate);
+    if (!cached) {
+      setLoading(true);
+    }
     setError("");
 
     try {
@@ -105,6 +128,20 @@ export default function DashboardPage() {
         const sales = results[6].value.data?.data || results[6].value.data || [];
         setPosSalesList(Array.isArray(sales) ? sales : []);
       }
+
+      // Save fresh metrics into cache for instant 0ms subsequent loads
+      setCachedDashboard(selectedDate, {
+        reportData: results[0].status === "fulfilled" && results[0].value ? results[0].value.summary || null : null,
+        financeData: results[1].status === "fulfilled" && results[1].value ? results[1].value.data || null : null,
+        closingsList: results[2].status === "fulfilled" && results[2].value ? (Array.isArray(results[2].value.data?.data || results[2].value.data) ? results[2].value.data?.data || results[2].value.data : []) : [],
+        customerStats: results[3].status === "fulfilled" && results[3].value ? {
+          count: Array.isArray(results[3].value) ? results[3].value.length : 0,
+          totalUdhar: Array.isArray(results[3].value) ? results[3].value.reduce((acc, c) => acc + (Number(c.balance || c.currentBalance || c.outstandingBalance || 0) > 0 ? Number(c.balance || c.currentBalance || c.outstandingBalance || 0) : 0), 0) : 0,
+        } : { count: 0, totalUdhar: 0 },
+        lowStockItems: results[4].status === "fulfilled" && results[4].value ? (Array.isArray(results[4].value.data?.data || results[4].value.data) ? results[4].value.data?.data || results[4].value.data : []) : [],
+        recentPurchases: results[5].status === "fulfilled" && results[5].value ? (Array.isArray(results[5].value.data?.data || results[5].value.data) ? (results[5].value.data?.data || results[5].value.data).slice(0, 5) : []) : [],
+        posSalesList: results[6].status === "fulfilled" && results[6].value ? (Array.isArray(results[6].value.data?.data || results[6].value.data) ? results[6].value.data?.data || results[6].value.data : []) : [],
+      });
     } catch (err) {
       setError("Unable to sync some dashboard metrics. Please check network connectivity.");
     } finally {
