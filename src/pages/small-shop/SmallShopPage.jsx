@@ -5,6 +5,7 @@ import { getApiErrorMessage } from "../../api/apiError";
 import {
   getProducts,
   createProduct,
+  updateProduct,
   deactivateProduct,
 } from "../../api/productApi";
 import {
@@ -101,6 +102,14 @@ export default function SmallShopPage() {
   const [productOrderMap, setProductOrderMap] = useState(() => getStoredProductOrder(user));
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showArrangeModal, setShowArrangeModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    sellingPrice: "",
+    hsnCode: "",
+    gstRate: "0",
+    orderNum: "",
+  });
   const [savingProduct, setSavingProduct] = useState(false);
 
   useEffect(() => {
@@ -884,6 +893,80 @@ export default function SmallShopPage() {
     setMessage("Product removed from daily closing desk.");
   }
 
+  // Open Edit Product Modal
+  const openEditModal = (product) => {
+    const orderNum = productOrderMap[product.id] !== undefined ? String(productOrderMap[product.id]) : "";
+    setEditingProduct(product);
+    setEditForm({
+      name: product.name || "",
+      sellingPrice: String(product.sellingPrice || ""),
+      hsnCode: product.hsnCode || "",
+      gstRate: String(product.gstRate || "0"),
+      orderNum: orderNum,
+    });
+  };
+
+  // Save Product Updates (Name, Price, Sequence Order, GST)
+  async function handleUpdateProduct(e) {
+    if (e) e.preventDefault();
+    if (!editingProduct) return;
+    const trimmedName = (editForm.name || "").trim();
+    const parsedPrice = Number(editForm.sellingPrice);
+
+    if (!trimmedName || isNaN(parsedPrice) || parsedPrice <= 0) {
+      setError("Please enter a valid product name and positive selling price.");
+      return;
+    }
+
+    setSavingProduct(true);
+    setError("");
+    setMessage("");
+
+    const parsedNum = parseInt(editForm.orderNum, 10);
+    const assignedOrder = !isNaN(parsedNum) && parsedNum > 0 ? parsedNum : (productOrderMap[editingProduct.id] || 1);
+
+    const payload = {
+      name: trimmedName,
+      sellingPrice: parsedPrice,
+      hsnCode: (editForm.hsnCode || "").trim() || null,
+      gstRate: Number(editForm.gstRate) || 0,
+      active: true,
+    };
+
+    try {
+      if (!editingProduct.isLocal && !String(editingProduct.id).startsWith("local_")) {
+        await updateProduct(editingProduct.id, payload).catch((err) => {
+          console.warn("Cloud update failed (e.g. offline/expired subscription); updating locally", err);
+        });
+      }
+    } catch {
+      // Graceful local update
+    }
+
+    const updatedItem = {
+      ...editingProduct,
+      ...payload,
+    };
+
+    setProducts((prev) => {
+      const next = prev.map((p) => (p.id === editingProduct.id ? updatedItem : p));
+      saveStoredLocalProducts(user, next);
+      setCached(CACHE_KEYS.PRODUCTS, next, TTL.PRODUCTS);
+      return next;
+    });
+
+    const updatedOrder = {
+      ...productOrderMap,
+      [editingProduct.id]: assignedOrder,
+    };
+    setProductOrderMap(updatedOrder);
+    saveProductOrder(updatedOrder);
+
+    setEditingProduct(null);
+    setSavingProduct(false);
+    setMessage(`✓ Updated "${updatedItem.name}" (${formatMoney(updatedItem.sellingPrice)}) successfully!`);
+  }
+
   return (
     <div className="small-shop-closing-container">
       {/* Top Header Card */}
@@ -1282,14 +1365,6 @@ export default function SmallShopPage() {
                   <div
                     key={p.id}
                     className="item-row"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "36px 1fr auto auto",
-                      gap: "10px",
-                      alignItems: "center",
-                      padding: "10px 0",
-                      borderBottom: "1px solid var(--line)",
-                    }}
                   >
                     {/* 1-to-10 Sequence Number Input */}
                     <input
@@ -1303,11 +1378,24 @@ export default function SmallShopPage() {
                       aria-label={`Position sequence number for ${p.name}`}
                     />
 
-                    <div>
-                      <strong style={{ fontSize: "14px", color: "var(--deep)", display: "block" }}>
-                        {p.name}
-                      </strong>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+                    <div className="item-row-info">
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <strong style={{ fontSize: "14px", color: "var(--deep)", display: "block" }}>
+                          {p.name}
+                        </strong>
+                        {isOwner && (
+                          <button
+                            type="button"
+                            className="item-edit-inline-btn"
+                            onClick={() => openEditModal(p)}
+                            title={`Edit ${p.name}`}
+                            aria-label={`Edit ${p.name}`}
+                          >
+                            ✏️
+                          </button>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", flexWrap: "wrap" }}>
                         <small style={{ color: "var(--mute)", fontSize: "12px" }}>
                           {formatMoney(p.sellingPrice)} each
                         </small>
@@ -1331,7 +1419,7 @@ export default function SmallShopPage() {
                     </div>
 
                     {/* Stepper with 44px touch buttons */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <div className="item-row-stepper" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <button
                         className="stepper-btn"
                         onClick={() => changeQty(p.id, -1)}
@@ -1373,7 +1461,7 @@ export default function SmallShopPage() {
                       </button>
                     </div>
 
-                    <strong style={{ minWidth: "75px", textAlign: "right", fontSize: "14px", color: "var(--deep)" }}>
+                    <strong className="item-row-total" style={{ minWidth: "75px", textAlign: "right", fontSize: "14px", color: "var(--deep)" }}>
                       {formatMoney(lineTotal)}
                     </strong>
                   </div>
@@ -1903,7 +1991,7 @@ export default function SmallShopPage() {
                       <strong>{p.name}</strong> · {formatMoney(p.sellingPrice)} (GST {p.gstRate || 0}%)
                     </span>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                     <div style={{ display: "flex", gap: "3px" }}>
                       <button
                         type="button"
@@ -1928,8 +2016,17 @@ export default function SmallShopPage() {
                     </div>
                     <button
                       type="button"
+                      className="btn btn-sm btn-outline"
+                      onClick={() => openEditModal(p)}
+                      title={`Edit ${p.name}`}
+                      style={{ padding: "3px 8px", fontSize: "11.5px", color: "var(--brand)", borderColor: "var(--brand)", fontWeight: 600 }}
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleRemoveProduct(p.id)}
-                      style={{ color: "var(--bad)", fontSize: "12.5px", fontWeight: 600 }}
+                      style={{ color: "var(--bad)", fontSize: "12px", fontWeight: 600, background: "none", border: "none", cursor: "pointer", padding: "3px 6px" }}
                     >
                       Deactivate
                     </button>
@@ -2332,6 +2429,18 @@ export default function SmallShopPage() {
                         <button
                           type="button"
                           className="btn btn-sm btn-outline"
+                          onClick={() => {
+                            setShowArrangeModal(false);
+                            openEditModal(p);
+                          }}
+                          title={`Edit ${p.name}`}
+                          style={{ padding: "4px 8px", fontSize: "12px", color: "var(--brand)" }}
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline"
                           disabled={idx === 0}
                           onClick={() => moveItem(idx, -1)}
                           title="Move up"
@@ -2368,6 +2477,127 @@ export default function SmallShopPage() {
                 ✓ Done
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: EDIT PRODUCT ================= */}
+      {editingProduct && (
+        <div
+          className="mobile-drawer-overlay"
+          onClick={() => setEditingProduct(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-product-modal-title"
+        >
+          <div className="product-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--line)", paddingBottom: "12px" }}>
+              <div>
+                <h3 id="edit-product-modal-title" style={{ fontSize: "19px", color: "var(--deep)", margin: 0 }}>
+                  ✏️ Edit Menu Product
+                </h3>
+                <p className="muted" style={{ fontSize: "12.5px", margin: "4px 0 0 0" }}>
+                  Update name, price, position number (1–10), and GST rate.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={() => setEditingProduct(null)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateProduct} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div className="input-group">
+                <label htmlFor="edit-prod-name">Product Name *</label>
+                <input
+                  id="edit-prod-name"
+                  required
+                  placeholder="e.g. Masala Chai"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div className="input-group">
+                  <label htmlFor="edit-prod-price">Selling Price (₹) *</label>
+                  <input
+                    id="edit-prod-price"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    required
+                    placeholder="e.g. 15.00"
+                    value={editForm.sellingPrice}
+                    onChange={(e) => setEditForm({ ...editForm, sellingPrice: e.target.value })}
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label htmlFor="edit-prod-order">Sequence Number (1–10)</label>
+                  <input
+                    id="edit-prod-order"
+                    type="number"
+                    min="1"
+                    max="999"
+                    placeholder="e.g. 1"
+                    value={editForm.orderNum}
+                    onChange={(e) => setEditForm({ ...editForm, orderNum: e.target.value })}
+                  />
+                  <small style={{ color: "var(--mute)", fontSize: "11px" }}>Position in daily closing tally</small>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div className="input-group">
+                  <label htmlFor="edit-prod-gst">GST Rate</label>
+                  <select
+                    id="edit-prod-gst"
+                    value={editForm.gstRate}
+                    onChange={(e) => setEditForm({ ...editForm, gstRate: e.target.value })}
+                  >
+                    <option value="0">0% (Nil / Exempt)</option>
+                    <option value="5">5% GST</option>
+                    <option value="12">12% GST</option>
+                    <option value="18">18% GST</option>
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label htmlFor="edit-prod-hsn">HSN Code (Optional)</label>
+                  <input
+                    id="edit-prod-hsn"
+                    placeholder="e.g. 0902"
+                    value={editForm.hsnCode}
+                    onChange={(e) => setEditForm({ ...editForm, hsnCode: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  style={{ flex: 1 }}
+                  onClick={() => setEditingProduct(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ flex: 1 }}
+                  disabled={savingProduct}
+                >
+                  {savingProduct ? "Saving..." : "✓ Update Product"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
