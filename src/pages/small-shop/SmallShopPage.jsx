@@ -1379,8 +1379,8 @@ export default function SmallShopPage() {
                     />
 
                     <div className="item-row-info">
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <strong style={{ fontSize: "14px", color: "var(--deep)", display: "block" }}>
+                      <div className="item-row-name-wrap">
+                        <strong className="item-row-name">
                           {p.name}
                         </strong>
                         {isOwner && (
@@ -1395,31 +1395,23 @@ export default function SmallShopPage() {
                           </button>
                         )}
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", flexWrap: "wrap" }}>
-                        <small style={{ color: "var(--mute)", fontSize: "12px" }}>
+                      <div className="item-row-meta">
+                        <small className="item-row-price">
                           {formatMoney(p.sellingPrice)} each
                         </small>
                         {posSoldItem && posSoldItem.qty > 0 && (
                           <span
-                            style={{
-                              fontSize: "10.5px",
-                              fontWeight: 700,
-                              background: "rgba(15, 61, 47, 0.08)",
-                              color: "var(--brand)",
-                              padding: "1px 6px",
-                              borderRadius: "var(--radius-xs)",
-                              border: "1px solid rgba(15, 61, 47, 0.2)",
-                            }}
+                            className="item-row-pos-tag"
                             title={`${posSoldItem.qty} units sold at POS counter today`}
                           >
-                            🛒 POS Sold: {posSoldItem.qty}
+                            🛒 POS: {posSoldItem.qty}
                           </span>
                         )}
                       </div>
                     </div>
 
-                    {/* Stepper with 44px touch buttons */}
-                    <div className="item-row-stepper" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    {/* Stepper with touch buttons */}
+                    <div className="item-row-stepper">
                       <button
                         className="stepper-btn"
                         onClick={() => changeQty(p.id, -1)}
@@ -1461,7 +1453,7 @@ export default function SmallShopPage() {
                       </button>
                     </div>
 
-                    <strong className="item-row-total" style={{ minWidth: "75px", textAlign: "right", fontSize: "14px", color: "var(--deep)" }}>
+                    <strong className="item-row-total">
                       {formatMoney(lineTotal)}
                     </strong>
                   </div>
@@ -2411,7 +2403,6 @@ export default function SmallShopPage() {
                             value={currentNum}
                             onChange={(e) => handleQuickChangeOrder(p.id, e.target.value)}
                             className="item-order-pill"
-                            style={{ width: "40px" }}
                             title="Position number"
                           />
                         </div>
