@@ -56,6 +56,7 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
   const isOwner = user?.role === "OWNER";
   const showSmallShop = mode === "SMALL" || mode === "BOTH";
   const showLargeShop = mode === "LARGE" || mode === "BOTH";
+  const isSmallShopMode = mode === "SMALL";
 
   // Dynamic Title Determination if not explicitly provided
   const getComputedTitle = () => {
@@ -369,18 +370,20 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
                 {sidebarCollapsed ? "•" : "Admin & Security"}
               </div>
               <div className="sidebar-nav-list">
-                <NavLink
-                  to="/team"
-                  onMouseEnter={() => prefetchRoute(() => import("../../pages/team/TeamPage"))}
-                  onTouchStart={() => prefetchRoute(() => import("../../pages/team/TeamPage"))}
-                  className={({ isActive }) =>
-                    `sidebar-nav-item ${isActive ? "active" : ""}`
-                  }
-                  title="Team Access"
-                >
-                  <span className="sidebar-nav-icon">🔑</span>
-                  <span className="sidebar-nav-label">Team &amp; Access</span>
-                </NavLink>
+                {!isSmallShopMode && (
+                  <NavLink
+                    to="/team"
+                    onMouseEnter={() => prefetchRoute(() => import("../../pages/team/TeamPage"))}
+                    onTouchStart={() => prefetchRoute(() => import("../../pages/team/TeamPage"))}
+                    className={({ isActive }) =>
+                      `sidebar-nav-item ${isActive ? "active" : ""}`
+                    }
+                    title="Team Access"
+                  >
+                    <span className="sidebar-nav-icon">🔑</span>
+                    <span className="sidebar-nav-label">Team &amp; Access</span>
+                  </NavLink>
+                )}
                 <NavLink
                   to="/notifications"
                   onMouseEnter={() => prefetchRoute(() => import("../../pages/notifications/NotificationsPage"))}
@@ -393,18 +396,20 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
                   <span className="sidebar-nav-icon">🔔</span>
                   <span className="sidebar-nav-label">Notifications</span>
                 </NavLink>
-                <NavLink
-                  to="/audit"
-                  onMouseEnter={() => prefetchRoute(() => import("../../pages/audit/AuditPage"))}
-                  onTouchStart={() => prefetchRoute(() => import("../../pages/audit/AuditPage"))}
-                  className={({ isActive }) =>
-                    `sidebar-nav-item ${isActive ? "active" : ""}`
-                  }
-                  title="Activity Audit"
-                >
-                  <span className="sidebar-nav-icon">🔐</span>
-                  <span className="sidebar-nav-label">Activity Audit</span>
-                </NavLink>
+                {!isSmallShopMode && (
+                  <NavLink
+                    to="/audit"
+                    onMouseEnter={() => prefetchRoute(() => import("../../pages/audit/AuditPage"))}
+                    onTouchStart={() => prefetchRoute(() => import("../../pages/audit/AuditPage"))}
+                    className={({ isActive }) =>
+                      `sidebar-nav-item ${isActive ? "active" : ""}`
+                    }
+                    title="Activity Audit"
+                  >
+                    <span className="sidebar-nav-icon">🔐</span>
+                    <span className="sidebar-nav-label">Activity Audit</span>
+                  </NavLink>
+                )}
                 <NavLink
                   to="/subscription"
                   onMouseEnter={() => prefetchRoute(() => import("../../pages/subscription/SubscriptionPage"))}
@@ -528,7 +533,7 @@ export default function AppShell({ children, pageTitle, breadcrumbs = [] }) {
                     <span>💳</span>
                     <span>Billing &amp; Plans</span>
                   </Link>
-                  {isOwner && (
+                  {isOwner && !isSmallShopMode && (
                     <Link className="user-menu-item" to="/team" role="menuitem">
                       <span>🔑</span>
                       <span>Manage Team</span>

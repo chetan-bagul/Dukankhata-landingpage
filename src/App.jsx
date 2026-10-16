@@ -80,6 +80,10 @@ function Protected({ children, requiredFeature }) {
     return <Navigate to="/dashboard" replace />;
   }
 
+  if ((requiredFeature === "team" || requiredFeature === "audit") && user?.operatingMode === "SMALL") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return <AppShell>{children}</AppShell>;
 }
 
@@ -210,7 +214,7 @@ export default function App() {
         <Route
           path="/audit"
           element={
-            <Protected>
+            <Protected requiredFeature="audit">
               <AuditPage />
             </Protected>
           }
@@ -218,7 +222,7 @@ export default function App() {
         <Route
           path="/team"
           element={
-            <Protected>
+            <Protected requiredFeature="team">
               <TeamPage />
             </Protected>
           }
