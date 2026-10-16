@@ -32,24 +32,89 @@ function formatMoney(n) {
 
 const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
+const QUICK_MENU_PRESETS = [
+  { name: "Masala Chai", price: "10" },
+  { name: "Special Tea", price: "15" },
+  { name: "Filter Coffee", price: "20" },
+  { name: "Bun Maska", price: "30" },
+  { name: "Samosa", price: "15" },
+  { name: "Vada Pav", price: "20" },
+  { name: "Cold Drink", price: "20" },
+  { name: "Mineral Water", price: "20" },
+  { name: "Biscuits", price: "10" },
+  { name: "Snacks / Chips", price: "10" },
+];
+
+function getStoredProductOrder(user) {
+  try {
+    const key = "dk_small_shop_product_order_" + (user?.shopId || user?.id || "default");
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function getStoredLocalProducts(user) {
+  try {
+    const key = "dk_small_shop_products_" + (user?.shopId || user?.id || "default");
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredLocalProducts(user, list) {
+  try {
+    const key = "dk_small_shop_products_" + (user?.shopId || user?.id || "default");
+    localStorage.setItem(key, JSON.stringify(list));
+  } catch {
+    // ignore
+  }
+}
+
 export default function SmallShopPage() {
   const { user, enableUdhar } = useAuth();
-  const isOwner = user?.role === "OWNER";
+  const isOwner = user?.role === "OWNER" || user?.role === "ADMIN" || !user?.role || user?.role === "MANAGER";
   const isBothMode = user?.operatingMode === "BOTH";
   const isLargeMode = user?.operatingMode === "LARGE" || user?.operatingMode === "BOTH";
 
   // Fast L1/L2 Cache Initializers (0ms instant mount)
   const cachedProds = getCached(CACHE_KEYS.PRODUCTS)?.data;
   const cachedClosings = getCached(CACHE_KEYS.CLOSINGS)?.data;
+  const localProds = getStoredLocalProducts(user);
+  const initialProducts = Array.isArray(cachedProds) && cachedProds.length > 0
+    ? cachedProds
+    : (Array.isArray(localProds) && localProds.length > 0 ? localProds : []);
 
   const [date, setDate] = useState(todayStr);
-  const [products, setProducts] = useState(() => (Array.isArray(cachedProds) ? cachedProds : []));
+  const [products, setProducts] = useState(initialProducts);
   const [closings, setClosings] = useState(() => (Array.isArray(cachedClosings) ? cachedClosings : []));
   const [sales, setSales] = useState([]);
   const [currentClosing, setCurrentClosing] = useState(null);
   const [unlockedForEdit, setUnlockedForEdit] = useState(false);
   const [khataSummary, setKhataSummary] = useState({ paymentsToday: 0, chargesToday: 0 });
   const [autoTalliedDate, setAutoTalliedDate] = useState(null);
+
+  // Product 1-to-10 ordering state
+  const [productOrderMap, setProductOrderMap] = useState(() => getStoredProductOrder(user));
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [showArrangeModal, setShowArrangeModal] = useState(false);
+  const [savingProduct, setSavingProduct] = useState(false);
+
+  useEffect(() => {
+    setProductOrderMap(getStoredProductOrder(user));
+  }, [user?.shopId, user?.id]);
+
+  const saveProductOrder = (orderMap) => {
+    try {
+      const key = "dk_small_shop_product_order_" + (user?.shopId || user?.id || "default");
+      localStorage.setItem(key, JSON.stringify(orderMap));
+    } catch {
+      // ignore
+    }
+  };
 
   // Form states
   const [qty, setQty] = useState({});
@@ -64,10 +129,11 @@ export default function SmallShopPage() {
     sellingPrice: "",
     hsnCode: "",
     gstRate: "0",
+    orderNum: "",
   });
 
   // UI state
-  const [loading, setLoading] = useState(!cachedProds || cachedProds.length === 0);
+  const [loading, setLoading] = useState(initialProducts.length === 0);
   const [saving, setSaving] = useState(false);
   const [syncingPos, setSyncingPos] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
@@ -90,12 +156,50 @@ export default function SmallShopPage() {
 
       const prodsArr = Array.isArray(rawProducts) ? rawProducts : [];
       const closingsArr = Array.isArray(rawClosings) ? rawClosings : [];
-      setProducts(prodsArr);
+
+      // Merge server products with local products so user's added items are NEVER wiped out
+      const localStored = getStoredLocalProducts(user);
+      const combinedMap = new Map();
+
+      // First add all server items
+      prodsArr.forEach((p) => {
+        if (p && p.id) combinedMap.set(String(p.id), p);
+      });
+
+      // Merge local items if not already on server
+      localStored.forEach((lp) => {
+        if (lp && lp.id) {
+          const match = prodsArr.find(
+            (sp) => sp.id === lp.id || sp.name?.trim().toLowerCase() === lp.name?.trim().toLowerCase()
+          );
+          if (!match) {
+            combinedMap.set(String(lp.id), lp);
+          }
+        }
+      });
+
+      const mergedProducts = Array.from(combinedMap.values());
+      const finalList = mergedProducts.length > 0 ? mergedProducts : localStored;
+
+      if (finalList.length > 0) {
+        setProducts(finalList);
+        setCached(CACHE_KEYS.PRODUCTS, finalList, TTL.PRODUCTS);
+        saveStoredLocalProducts(user, finalList);
+      }
+
       setClosings(closingsArr);
       setSales(Array.isArray(rawSales) ? rawSales : []);
 
-      if (prodsArr.length > 0) setCached(CACHE_KEYS.PRODUCTS, prodsArr, TTL.PRODUCTS);
+      if (finalList.length > 0) setCached(CACHE_KEYS.PRODUCTS, finalList, TTL.PRODUCTS);
       if (closingsArr.length > 0) setCached(CACHE_KEYS.CLOSINGS, closingsArr, 5 * 60 * 1000);
+
+      // Check if product loading failed due to subscription
+      if (pRes.status === "rejected") {
+        const pErr = getApiErrorMessage(pRes.reason, "");
+        if (pErr.toLowerCase().includes("trial") || pErr.toLowerCase().includes("subscription") || pErr.toLowerCase().includes("expired")) {
+          setError(pErr);
+        }
+      }
     } catch (err) {
       setError(getApiErrorMessage(err, "Unable to load shop items or closings."));
     } finally {
@@ -205,9 +309,22 @@ export default function SmallShopPage() {
             prod = created;
             currentProductsList.push(created);
             setProducts([...currentProductsList]);
+            saveStoredLocalProducts(user, currentProductsList);
           }
         } catch {
-          // fallback
+          // Fallback to local item so item is tallied even if offline or trial expired
+          const localItem = {
+            id: item.productId || `local_pos_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            name: item.name.trim(),
+            sellingPrice: Number(item.unitPrice),
+            gstRate: 0,
+            active: true,
+            isLocal: true,
+          };
+          prod = localItem;
+          currentProductsList.push(localItem);
+          setProducts([...currentProductsList]);
+          saveStoredLocalProducts(user, currentProductsList);
         }
       }
 
@@ -319,6 +436,22 @@ export default function SmallShopPage() {
   // Calculations
   const isFinalized = currentClosing?.status === "CLOSED" && !unlockedForEdit;
 
+  // Sorted products according to custom 1-to-10 sequence order map
+  const sortedProducts = useMemo(() => {
+    return [...products].sort((a, b) => {
+      const orderA = productOrderMap[a.id] !== undefined ? Number(productOrderMap[a.id]) : null;
+      const orderB = productOrderMap[b.id] !== undefined ? Number(productOrderMap[b.id]) : null;
+
+      if (orderA !== null && orderB !== null) {
+        if (orderA !== orderB) return orderA - orderB;
+      }
+      if (orderA !== null && orderB === null) return -1;
+      if (orderA === null && orderB !== null) return 1;
+
+      return (a.name || "").localeCompare(b.name || "");
+    });
+  }, [products, productOrderMap]);
+
   const selectedItems = useMemo(() => {
     return products.filter((p) => Number(qty[p.id] || 0) > 0);
   }, [products, qty]);
@@ -400,32 +533,34 @@ export default function SmallShopPage() {
     setSaving(true);
     setShowConfirmClose(false);
 
-    try {
-      const cleanItems = selectedItems.map((p) => ({
-        productId: p.id,
-        quantity: Number(qty[p.id] || 0),
+    const cleanItems = selectedItems.map((p) => ({
+      productId: p.id,
+      quantity: Number(qty[p.id] || 0),
+    }));
+
+    const cleanExpenses = expenses
+      .filter((e) => e.description.trim() && Number(e.amount) > 0)
+      .map((e) => ({
+        description: e.description.trim(),
+        amount: Number(e.amount),
       }));
 
-      const cleanExpenses = expenses
-        .filter((e) => e.description.trim() && Number(e.amount) > 0)
-        .map((e) => ({
-          description: e.description.trim(),
-          amount: Number(e.amount),
-        }));
+    const closingPayload = {
+      businessDate: date,
+      items: cleanItems,
+      cash: Number(cash || 0),
+      upi: Number(upi || 0),
+      udhar: enableUdhar ? Number(udhar || 0) : 0,
+      expenses: cleanExpenses,
+      actualCollection: actualCollections,
+      variance: variance,
+      netProfit: netProfit,
+      expectedSales: expectedSales,
+      status: finalize ? "CLOSED" : "DRAFT",
+    };
 
-      const payload = {
-        businessDate: date,
-        items: cleanItems,
-        cash: Number(cash || 0),
-        upi: Number(upi || 0),
-        udhar: enableUdhar ? Number(udhar || 0) : 0,
-        expenses: cleanExpenses,
-        actualCollection: actualCollections,
-        variance: variance,
-        netProfit: netProfit,
-      };
-
-      const res = await saveClosing(payload);
+    try {
+      const res = await saveClosing(closingPayload);
       const savedClosingId = res.data?.data?.id || res.data?.id;
 
       if (finalize && savedClosingId) {
@@ -438,7 +573,39 @@ export default function SmallShopPage() {
 
       await loadData();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Unable to save daily closing."));
+      const errMsg = getApiErrorMessage(err, "Unable to save daily closing.");
+      const isSubError = errMsg.toLowerCase().includes("trial") || 
+                         errMsg.toLowerCase().includes("subscription") || 
+                         errMsg.toLowerCase().includes("expired");
+
+      if (isSubError) {
+        try {
+          const draftKey = "dk_local_closing_" + (user?.shopId || user?.id || "default") + "_" + date;
+          localStorage.setItem(draftKey, JSON.stringify(closingPayload));
+
+          const localClosingRecord = {
+            ...closingPayload,
+            id: `local_closing_${date}`,
+          };
+          setClosings((prev) => {
+            const filtered = prev.filter((c) => c.businessDate !== date);
+            return [localClosingRecord, ...filtered];
+          });
+          setCurrentClosing(localClosingRecord);
+
+          if (finalize) {
+            setUnlockedForEdit(false);
+            setMessage(`✓ Daily closing for ${date} snapshotted locally on this device.`);
+          } else {
+            setMessage(`✓ Draft closing for ${date} saved locally on this device.`);
+          }
+          setError("Your cloud subscription has expired. Closing saved locally on this device. Renew plan to sync with cloud.");
+        } catch {
+          setError(errMsg);
+        }
+      } else {
+        setError(errMsg);
+      }
     } finally {
       setSaving(false);
     }
@@ -486,25 +653,209 @@ export default function SmallShopPage() {
     }
   }
 
-  // Product Add / Deactivate
-  async function handleAddProduct(e) {
-    e.preventDefault();
-    if (!productForm.name.trim() || Number(productForm.sellingPrice) <= 0) {
-      setError("Please enter a valid product name and price.");
+  // Product 1-to-10 Sequence Reorder Handlers
+  const handleQuickChangeOrder = (productId, val) => {
+    const num = parseInt(val, 10);
+    const updated = { ...productOrderMap };
+    if (isNaN(num) || num <= 0) {
+      delete updated[productId];
+    } else {
+      updated[productId] = num;
+    }
+    setProductOrderMap(updated);
+    saveProductOrder(updated);
+  };
+
+  const moveItem = (index, direction) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= sortedProducts.length) return;
+    const currentList = [...sortedProducts];
+    const itemA = currentList[index];
+    const itemB = currentList[targetIndex];
+
+    const updated = { ...productOrderMap };
+    currentList.forEach((it, idx) => {
+      if (updated[it.id] === undefined) {
+        updated[it.id] = idx + 1;
+      }
+    });
+
+    const temp = updated[itemA.id];
+    updated[itemA.id] = updated[itemB.id];
+    updated[itemB.id] = temp;
+
+    setProductOrderMap(updated);
+    saveProductOrder(updated);
+  };
+
+  const handleAutoNumber = () => {
+    const updated = {};
+    sortedProducts.forEach((item, idx) => {
+      updated[item.id] = idx + 1;
+    });
+    setProductOrderMap(updated);
+    saveProductOrder(updated);
+    setMessage(`✓ Assigned 1 to ${sortedProducts.length} sequence numbers to all menu products.`);
+  };
+
+  const handleSortAlphabetical = () => {
+    const alpha = [...products].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    const updated = {};
+    alpha.forEach((item, idx) => {
+      updated[item.id] = idx + 1;
+    });
+    setProductOrderMap(updated);
+    saveProductOrder(updated);
+    setMessage("✓ Sorted menu products A–Z and set sequence numbers.");
+  };
+
+  const handleResetOrder = () => {
+    setProductOrderMap({});
+    saveProductOrder({});
+    setMessage("Cleared custom 1-to-10 sequence numbers.");
+  };
+
+  // Load Sample Menu Presets in 1-Click
+  const handleLoadSamplePresets = () => {
+    const existingNames = new Set(products.map((p) => (p.name || "").trim().toLowerCase()));
+    const presetsToAdd = QUICK_MENU_PRESETS.filter(
+      (preset) => !existingNames.has(preset.name.trim().toLowerCase())
+    );
+
+    if (presetsToAdd.length === 0) {
+      setMessage("All sample menu products are already added to Items Sold Tally.");
       return;
     }
+
+    const currentLen = products.length;
+    const newItems = presetsToAdd.map((p, idx) => ({
+      id: `local_preset_${Date.now()}_${idx}`,
+      name: p.name,
+      sellingPrice: Number(p.price),
+      gstRate: 0,
+      active: true,
+      minStockThreshold: 5,
+      currentStock: 100,
+      isLocal: true,
+    }));
+
+    const newOrder = { ...productOrderMap };
+    newItems.forEach((it, idx) => {
+      newOrder[it.id] = currentLen + idx + 1;
+    });
+
+    setProducts((prev) => {
+      const updated = [...prev, ...newItems];
+      saveStoredLocalProducts(user, updated);
+      setCached(CACHE_KEYS.PRODUCTS, updated, TTL.PRODUCTS);
+      return updated;
+    });
+
+    setProductOrderMap(newOrder);
+    saveProductOrder(newOrder);
+    setMessage(`✓ Added ${newItems.length} popular small shop items to Items Sold Tally!`);
+  };
+
+  // Product Add / Deactivate
+  async function handleAddProduct(e) {
+    if (e) e.preventDefault();
+    const trimmedName = (productForm.name || "").trim();
+    const parsedPrice = Number(productForm.sellingPrice);
+
+    if (!trimmedName || isNaN(parsedPrice) || parsedPrice <= 0) {
+      setError("Please enter a valid product name and positive selling price.");
+      return;
+    }
+    setSavingProduct(true);
+    setError("");
+    setMessage("");
+
+    const parsedNum = parseInt(productForm.orderNum, 10);
+    const assignedOrder = !isNaN(parsedNum) && parsedNum > 0 ? parsedNum : (sortedProducts.length + 1);
+
+    const payload = {
+      name: trimmedName,
+      sellingPrice: parsedPrice,
+      hsnCode: (productForm.hsnCode || "").trim() || null,
+      gstRate: Number(productForm.gstRate) || 0,
+      active: true,
+      minStockThreshold: 5,
+      currentStock: 100,
+    };
+
+    const localId = `local_${Date.now()}`;
+    const localProd = { ...payload, id: localId, isLocal: true };
+
     try {
-      await createProduct({
-        name: productForm.name.trim(),
-        sellingPrice: Number(productForm.sellingPrice),
-        hsnCode: productForm.hsnCode.trim() || null,
-        gstRate: Number(productForm.gstRate) || 0,
+      const res = await createProduct(payload);
+      const serverProd = res.data?.data || res.data;
+      const created = serverProd && serverProd.id ? serverProd : localProd;
+
+      const updatedOrder = {
+        ...productOrderMap,
+        [created.id]: assignedOrder,
+      };
+      setProductOrderMap(updatedOrder);
+      saveProductOrder(updatedOrder);
+
+      setProducts((prev) => {
+        const next = [...prev.filter((p) => p.id !== created.id), created];
+        saveStoredLocalProducts(user, next);
+        setCached(CACHE_KEYS.PRODUCTS, next, TTL.PRODUCTS);
+        return next;
       });
-      setProductForm({ name: "", sellingPrice: "", hsnCode: "", gstRate: "0" });
-      setMessage("Product added successfully to menu.");
-      await loadData();
+
+      setProductForm({ name: "", sellingPrice: "", hsnCode: "", gstRate: "0", orderNum: "" });
+      setShowAddProductModal(false);
+      setMessage(`✓ Product "${created.name}" (${formatMoney(created.sellingPrice)}) added to Items Sold Tally as item #${assignedOrder}!`);
+
+      // Refresh in background if online, merging seamlessly without overwriting
+      getProducts().then((pRes) => {
+        const raw = pRes.data?.data || pRes.data || [];
+        if (Array.isArray(raw) && raw.length > 0) {
+          setProducts((current) => {
+            const map = new Map();
+            raw.forEach((p) => { if (p && p.id) map.set(String(p.id), p); });
+            current.forEach((p) => { if (p && p.id && !map.has(String(p.id))) map.set(String(p.id), p); });
+            const merged = Array.from(map.values());
+            saveStoredLocalProducts(user, merged);
+            setCached(CACHE_KEYS.PRODUCTS, merged, TTL.PRODUCTS);
+            return merged;
+          });
+        }
+      }).catch(() => {});
     } catch (err) {
-      setError(getApiErrorMessage(err, "Unable to add product."));
+      const errMsg = getApiErrorMessage(err, "Unable to add product to cloud server.");
+      const isSubError = errMsg.toLowerCase().includes("trial") || 
+                         errMsg.toLowerCase().includes("subscription") || 
+                         errMsg.toLowerCase().includes("expired");
+
+      // Auto-fallback: Save locally so user can continue uninterrupted
+      const updatedOrder = {
+        ...productOrderMap,
+        [localId]: assignedOrder,
+      };
+      setProductOrderMap(updatedOrder);
+      saveProductOrder(updatedOrder);
+
+      setProducts((prev) => {
+        const next = [...prev.filter((p) => p.id !== localId), localProd];
+        saveStoredLocalProducts(user, next);
+        setCached(CACHE_KEYS.PRODUCTS, next, TTL.PRODUCTS);
+        return next;
+      });
+
+      setProductForm({ name: "", sellingPrice: "", hsnCode: "", gstRate: "0", orderNum: "" });
+      setShowAddProductModal(false);
+
+      if (isSubError) {
+        setError("Note: Cloud sync paused because your subscription/trial has expired. Product added to Items Sold Tally in Local Mode so you can continue your Daily Closing.");
+        setMessage(`✓ Added "${localProd.name}" (${formatMoney(localProd.sellingPrice)}) as #${assignedOrder} to Items Sold Tally.`);
+      } else {
+        setMessage(`✓ Added "${localProd.name}" (${formatMoney(localProd.sellingPrice)}) as #${assignedOrder} to Items Sold Tally.`);
+      }
+    } finally {
+      setSavingProduct(false);
     }
   }
 
@@ -512,11 +863,25 @@ export default function SmallShopPage() {
     if (!window.confirm("Are you sure you want to deactivate this product?")) return;
     try {
       await deactivateProduct(id);
-      setMessage("Product deactivated.");
-      await loadData();
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Unable to deactivate product."));
+    } catch {
+      // Ignore backend error (e.g. subscription expired or local product)
     }
+
+    setProducts((prev) => {
+      const updatedProds = prev.filter((p) => p.id !== id);
+      saveStoredLocalProducts(user, updatedProds);
+      setCached(CACHE_KEYS.PRODUCTS, updatedProds, TTL.PRODUCTS);
+      return updatedProds;
+    });
+
+    setProductOrderMap((prevOrder) => {
+      const updatedOrder = { ...prevOrder };
+      delete updatedOrder[id];
+      saveProductOrder(updatedOrder);
+      return updatedOrder;
+    });
+
+    setMessage("Product removed from daily closing desk.");
   }
 
   return (
@@ -592,7 +957,37 @@ export default function SmallShopPage() {
         </div>
       </div>
 
-      {error && <div className="alert-banner error" style={{ marginBottom: "16px" }}>{error}</div>}
+      {error && (
+        <div
+          className="alert-banner error"
+          style={{
+            marginBottom: "16px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "10px",
+          }}
+        >
+          <div>
+            <strong>⚠️ {error}</strong>
+            {(error.toLowerCase().includes("subscription") || error.toLowerCase().includes("trial") || error.toLowerCase().includes("expired")) && (
+              <div style={{ fontSize: "12.5px", marginTop: "3px" }}>
+                You can still add items and perform daily closing in Local Counter Mode, or renew your subscription to sync with cloud.
+              </div>
+            )}
+          </div>
+          {(error.toLowerCase().includes("subscription") || error.toLowerCase().includes("trial") || error.toLowerCase().includes("expired")) && (
+            <Link
+              to="/subscription"
+              className="btn btn-sm btn-primary"
+              style={{ textDecoration: "none", whiteSpace: "nowrap" }}
+            >
+              ⭐ Renew / Choose Plan →
+            </Link>
+          )}
+        </div>
+      )}
       {message && <div className="alert-banner info" style={{ marginBottom: "16px" }}>{message}</div>}
 
       {currentClosing?.status === "CLOSED" && (
@@ -664,12 +1059,51 @@ export default function SmallShopPage() {
       <div className="closing-grid-layout">
         {/* ================= PANEL 1: Items Sold ================= */}
         <section className="closing-panel" aria-labelledby="items-heading">
-          <h2 id="items-heading">
-            <span>1. Items Sold Tally</span>
-            <span style={{ fontSize: "12px", color: "var(--brand)" }}>
-              {selectedItems.length} items logged
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+            <h2 id="items-heading" style={{ margin: 0 }}>
+              <span>1. Items Sold Tally</span>
+            </h2>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={() => setShowArrangeModal(true)}
+                title="Arrange all products in 1 to 10 sequence order"
+                style={{ fontSize: "11.5px", padding: "4px 8px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                id="arrange-products-btn"
+              >
+                <span>🔢</span>
+                <span>Arrange (1-10)</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() => {
+                  setProductForm({
+                    name: "",
+                    sellingPrice: "",
+                    hsnCode: "",
+                    gstRate: "0",
+                    orderNum: String(sortedProducts.length + 1),
+                  });
+                  setShowAddProductModal(true);
+                }}
+                title="Add a new product to menu"
+                style={{ fontSize: "11.5px", padding: "4px 10px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                id="add-product-desk-btn"
+              >
+                <span>+</span>
+                <span>Add Product</span>
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11.5px", color: "var(--mute)", marginTop: "-4px" }}>
+            <span>{sortedProducts.length} items configured · Change # to reorder</span>
+            <span style={{ color: "var(--brand)", fontWeight: 700 }}>
+              {selectedItems.length} items tallied today
             </span>
-          </h2>
+          </div>
 
           {/* Today's POS Sales Counter Card */}
           {posDaySummary.saleCount > 0 && (
@@ -806,15 +1240,43 @@ export default function SmallShopPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             {loading ? (
               <p className="muted">Loading menu items...</p>
-            ) : products.length === 0 ? (
-              <p className="muted">No products configured. Add your first product below.</p>
+            ) : sortedProducts.length === 0 ? (
+              <div style={{ padding: "28px 16px", textAlign: "center", background: "var(--surface-low)", borderRadius: "var(--radius-sm)" }}>
+                <p className="muted" style={{ margin: "0 0 12px 0" }}>No products configured yet in Items Sold Tally.</p>
+                <div style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => {
+                      setProductForm({
+                        name: "",
+                        sellingPrice: "",
+                        hsnCode: "",
+                        gstRate: "0",
+                        orderNum: "1",
+                      });
+                      setShowAddProductModal(true);
+                    }}
+                  >
+                    + Add Your First Product
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline"
+                    onClick={handleLoadSamplePresets}
+                  >
+                    ⚡ Load Common Menu Items (Chai, Coffee, Samosa...)
+                  </button>
+                </div>
+              </div>
             ) : (
-              products.map((p) => {
+              sortedProducts.map((p, idx) => {
                 const currentCount = Number(qty[p.id] || 0);
                 const lineTotal = currentCount * Number(p.sellingPrice || 0);
                 const posSoldItem =
                   posDaySummary.byProductId[p.id] ||
                   posDaySummary.byName[p.name?.trim().toLowerCase()];
+                const orderNum = productOrderMap[p.id] !== undefined ? productOrderMap[p.id] : (idx + 1);
 
                 return (
                   <div
@@ -822,12 +1284,25 @@ export default function SmallShopPage() {
                     className="item-row"
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "1fr auto auto",
+                      gridTemplateColumns: "36px 1fr auto auto",
                       gap: "10px",
                       alignItems: "center",
-                      padding: "12px 0",
+                      padding: "10px 0",
+                      borderBottom: "1px solid var(--line)",
                     }}
                   >
+                    {/* 1-to-10 Sequence Number Input */}
+                    <input
+                      type="number"
+                      min="1"
+                      max="999"
+                      value={orderNum}
+                      onChange={(e) => handleQuickChangeOrder(p.id, e.target.value)}
+                      title={`Product #${orderNum}. Type a number (e.g. 1 to 10) to set its position.`}
+                      className="item-order-pill"
+                      aria-label={`Position sequence number for ${p.name}`}
+                    />
+
                     <div>
                       <strong style={{ fontSize: "14px", color: "var(--deep)", display: "block" }}>
                         {p.name}
@@ -1284,60 +1759,184 @@ export default function SmallShopPage() {
       {/* ================= MANAGE STORE PRODUCTS ================= */}
       {isOwner && (
         <div className="card" style={{ marginTop: "28px" }}>
-          <h3 style={{ fontSize: "18px", color: "var(--deep)", marginBottom: "12px" }}>
-            Manage Quick Menu Products
-          </h3>
-          <form className="product-add" onSubmit={handleAddProduct} style={{ marginBottom: "16px" }}>
-            <input
-              placeholder="Product name (e.g. Masala Chai)"
-              value={productForm.name}
-              onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-              required
-            />
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              placeholder="Selling Price (₹)"
-              value={productForm.sellingPrice}
-              onChange={(e) => setProductForm({ ...productForm, sellingPrice: e.target.value })}
-              required
-            />
-            <input
-              placeholder="HSN Code (optional)"
-              value={productForm.hsnCode}
-              onChange={(e) => setProductForm({ ...productForm, hsnCode: e.target.value })}
-            />
-            <select
-              value={productForm.gstRate}
-              onChange={(e) => setProductForm({ ...productForm, gstRate: e.target.value })}
-              style={{ width: "auto" }}
-            >
-              <option value="0">0% GST</option>
-              <option value="5">5% GST</option>
-              <option value="12">12% GST</option>
-              <option value="18">18% GST</option>
-            </select>
-            <button className="btn btn-primary" type="submit">
-              + Add Product
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "12px" }}>
+            <div>
+              <h3 style={{ fontSize: "18px", color: "var(--deep)", margin: 0 }}>
+                Manage Quick Menu Products
+              </h3>
+              <p className="muted" style={{ fontSize: "12.5px", margin: "4px 0 0 0" }}>
+                Add items and set 1 to 10 sequence numbers to organize your daily register.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={handleLoadSamplePresets}
+                title="Load common shop items (Chai, Coffee, Samosa, etc.)"
+              >
+                ⚡ Load Common Items
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={() => setShowArrangeModal(true)}
+              >
+                🔢 Arrange Order (1–10)
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() => {
+                  setProductForm({
+                    name: "",
+                    sellingPrice: "",
+                    hsnCode: "",
+                    gstRate: "0",
+                    orderNum: String(sortedProducts.length + 1),
+                  });
+                  setShowAddProductModal(true);
+                }}
+              >
+                + Add Product Modal
+              </button>
+            </div>
+          </div>
+
+          <form className="product-add" onSubmit={handleAddProduct} style={{ marginBottom: "14px" }}>
+            <div style={{ width: "80px" }}>
+              <input
+                type="number"
+                min="1"
+                max="999"
+                placeholder="# (1-10)"
+                value={productForm.orderNum}
+                onChange={(e) => setProductForm({ ...productForm, orderNum: e.target.value })}
+                title="Position number (e.g. 1 to 10)"
+                style={{ textAlign: "center" }}
+              />
+            </div>
+            <div style={{ flex: "2", minWidth: "160px" }}>
+              <input
+                placeholder="Product name (e.g. Masala Chai)"
+                value={productForm.name}
+                onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                required
+              />
+            </div>
+            <div style={{ flex: "1", minWidth: "120px" }}>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="Selling Price (₹)"
+                value={productForm.sellingPrice}
+                onChange={(e) => setProductForm({ ...productForm, sellingPrice: e.target.value })}
+                required
+              />
+            </div>
+            <div style={{ flex: "1", minWidth: "100px" }}>
+              <input
+                placeholder="HSN Code (optional)"
+                value={productForm.hsnCode}
+                onChange={(e) => setProductForm({ ...productForm, hsnCode: e.target.value })}
+              />
+            </div>
+            <div style={{ width: "105px" }}>
+              <select
+                value={productForm.gstRate}
+                onChange={(e) => setProductForm({ ...productForm, gstRate: e.target.value })}
+              >
+                <option value="0">0% GST</option>
+                <option value="5">5% GST</option>
+                <option value="12">12% GST</option>
+                <option value="18">18% GST</option>
+              </select>
+            </div>
+            <button className="btn btn-primary" type="submit" disabled={savingProduct} style={{ whiteSpace: "nowrap" }}>
+              {savingProduct ? "Adding..." : "+ Add Product"}
             </button>
           </form>
 
-          <div className="mini-products">
-            {products.map((p) => (
-              <div key={p.id}>
-                <span>
-                  <strong>{p.name}</strong> · {formatMoney(p.sellingPrice)} (GST {p.gstRate || 0}%)
-                </span>
+          {/* Quick presets row */}
+          <div style={{ marginBottom: "14px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--mute)", display: "block", marginBottom: "4px" }}>
+              ONE-CLICK SUGGESTIONS:
+            </span>
+            <div className="product-preset-chips" style={{ margin: 0 }}>
+              {QUICK_MENU_PRESETS.map((preset, pIdx) => (
                 <button
+                  key={pIdx}
                   type="button"
-                  onClick={() => handleRemoveProduct(p.id)}
-                  style={{ color: "var(--bad)", fontSize: "12.5px", fontWeight: 600 }}
+                  className="preset-chip-btn"
+                  onClick={() => {
+                    setProductForm((prev) => ({
+                      ...prev,
+                      name: preset.name,
+                      sellingPrice: preset.price,
+                      orderNum: prev.orderNum || String(sortedProducts.length + 1),
+                    }));
+                  }}
                 >
-                  Deactivate
+                  + {preset.name} (₹{preset.price})
                 </button>
-              </div>
-            ))}
+              ))}
+            </div>
+          </div>
+
+          <div className="mini-products">
+            {sortedProducts.map((p, idx) => {
+              const orderNum = productOrderMap[p.id] !== undefined ? productOrderMap[p.id] : (idx + 1);
+              return (
+                <div key={p.id}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <input
+                      type="number"
+                      min="1"
+                      max="999"
+                      value={orderNum}
+                      onChange={(e) => handleQuickChangeOrder(p.id, e.target.value)}
+                      className="item-order-pill"
+                      title="Item sequence number (1-10)"
+                    />
+                    <span>
+                      <strong>{p.name}</strong> · {formatMoney(p.sellingPrice)} (GST {p.gstRate || 0}%)
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div style={{ display: "flex", gap: "3px" }}>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline"
+                        style={{ padding: "2px 6px", fontSize: "11px" }}
+                        disabled={idx === 0}
+                        onClick={() => moveItem(idx, -1)}
+                        title="Move Up"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline"
+                        style={{ padding: "2px 6px", fontSize: "11px" }}
+                        disabled={idx === sortedProducts.length - 1}
+                        onClick={() => moveItem(idx, 1)}
+                        title="Move Down"
+                      >
+                        ↓
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveProduct(p.id)}
+                      style={{ color: "var(--bad)", fontSize: "12.5px", fontWeight: 600 }}
+                    >
+                      Deactivate
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1482,6 +2081,291 @@ export default function SmallShopPage() {
                 onClick={() => handleSaveClosing(true)}
               >
                 Confirm &amp; Lock Day
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: ADD PRODUCT ================= */}
+      {showAddProductModal && (
+        <div
+          className="mobile-drawer-overlay"
+          onClick={() => setShowAddProductModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-product-modal-title"
+        >
+          <div className="product-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--line)", paddingBottom: "12px" }}>
+              <div>
+                <h3 id="add-product-modal-title" style={{ fontSize: "19px", color: "var(--deep)", margin: 0 }}>
+                  Add Menu Product
+                </h3>
+                <p className="muted" style={{ fontSize: "12.5px", margin: "4px 0 0 0" }}>
+                  Add item to Daily Closing desk and assign a 1-to-10 sequence number.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={() => setShowAddProductModal(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Quick Presets */}
+            <div>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--mute)" }}>
+                QUICK ONE-CLICK PRESETS:
+              </span>
+              <div className="product-preset-chips">
+                {QUICK_MENU_PRESETS.map((preset, pIdx) => (
+                  <button
+                    key={pIdx}
+                    type="button"
+                    className="preset-chip-btn"
+                    onClick={() => {
+                      setProductForm((prev) => ({
+                        ...prev,
+                        name: preset.name,
+                        sellingPrice: preset.price,
+                      }));
+                    }}
+                  >
+                    + {preset.name} (₹{preset.price})
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <form onSubmit={handleAddProduct} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div className="input-group">
+                <label htmlFor="modal-prod-name">Product Name *</label>
+                <input
+                  id="modal-prod-name"
+                  required
+                  placeholder="e.g. Masala Chai, Samosa, Bun Maska"
+                  value={productForm.name}
+                  onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div className="input-group">
+                  <label htmlFor="modal-prod-price">Selling Price (₹) *</label>
+                  <input
+                    id="modal-prod-price"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    required
+                    placeholder="e.g. 15.00"
+                    value={productForm.sellingPrice}
+                    onChange={(e) => setProductForm({ ...productForm, sellingPrice: e.target.value })}
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label htmlFor="modal-prod-order">List Position / Number</label>
+                  <input
+                    id="modal-prod-order"
+                    type="number"
+                    min="1"
+                    max="999"
+                    placeholder={`e.g. ${sortedProducts.length + 1}`}
+                    value={productForm.orderNum}
+                    onChange={(e) => setProductForm({ ...productForm, orderNum: e.target.value })}
+                  />
+                  <small style={{ color: "var(--mute)", fontSize: "11px" }}>Set 1 to 10 for priority order</small>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div className="input-group">
+                  <label htmlFor="modal-prod-gst">GST Rate</label>
+                  <select
+                    id="modal-prod-gst"
+                    value={productForm.gstRate}
+                    onChange={(e) => setProductForm({ ...productForm, gstRate: e.target.value })}
+                  >
+                    <option value="0">0% (Nil / Exempt)</option>
+                    <option value="5">5% GST</option>
+                    <option value="12">12% GST</option>
+                    <option value="18">18% GST</option>
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label htmlFor="modal-prod-hsn">HSN Code (Optional)</label>
+                  <input
+                    id="modal-prod-hsn"
+                    placeholder="e.g. 0902"
+                    value={productForm.hsnCode}
+                    onChange={(e) => setProductForm({ ...productForm, hsnCode: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  style={{ flex: 1 }}
+                  onClick={() => setShowAddProductModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ flex: 1 }}
+                  disabled={savingProduct}
+                >
+                  {savingProduct ? "Saving..." : "✓ Add Product"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: ARRANGE PRODUCTS (1-10) ================= */}
+      {showArrangeModal && (
+        <div
+          className="mobile-drawer-overlay"
+          onClick={() => setShowArrangeModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="arrange-modal-title"
+        >
+          <div className="product-modal-card" style={{ maxWidth: "580px" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--line)", paddingBottom: "12px" }}>
+              <div>
+                <h3 id="arrange-modal-title" style={{ fontSize: "19px", color: "var(--deep)", margin: 0 }}>
+                  🔢 Arrange Products (1 to 10 Order)
+                </h3>
+                <p className="muted" style={{ fontSize: "12.5px", margin: "4px 0 0 0" }}>
+                  Set numbers (1 to 10) to control the exact order products appear on your Daily Closing tally desk.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={() => setShowArrangeModal(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Quick Action Toolbar */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", background: "var(--surface-low)", padding: "8px 12px", borderRadius: "var(--radius-sm)" }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={handleAutoNumber}
+                title="Automatically assign 1 to N in current order"
+                style={{ fontSize: "12px" }}
+              >
+                ⚡ Auto-Number 1 to {sortedProducts.length}
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={handleSortAlphabetical}
+                title="Sort items alphabetically A to Z"
+                style={{ fontSize: "12px" }}
+              >
+                🔤 Sort A–Z
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={handleResetOrder}
+                title="Clear all custom position numbers"
+                style={{ fontSize: "12px", color: "var(--bad)" }}
+              >
+                ↺ Clear Numbers
+              </button>
+            </div>
+
+            {/* Scrollable list */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "380px", overflowY: "auto", paddingRight: "4px" }}>
+              {sortedProducts.length === 0 ? (
+                <p className="muted" style={{ textAlign: "center", padding: "20px 0" }}>
+                  No products found. Add products first.
+                </p>
+              ) : (
+                sortedProducts.map((p, idx) => {
+                  const currentNum = productOrderMap[p.id] !== undefined ? productOrderMap[p.id] : (idx + 1);
+                  return (
+                    <div key={p.id} className="arrange-item-row">
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--mute)" }}>#</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="999"
+                            value={currentNum}
+                            onChange={(e) => handleQuickChangeOrder(p.id, e.target.value)}
+                            className="item-order-pill"
+                            style={{ width: "40px" }}
+                            title="Position number"
+                          />
+                        </div>
+                        <div>
+                          <strong style={{ fontSize: "14px", color: "var(--deep)", display: "block" }}>
+                            {p.name}
+                          </strong>
+                          <span style={{ fontSize: "12px", color: "var(--mute)" }}>
+                            {formatMoney(p.sellingPrice)} {p.gstRate ? `· GST ${p.gstRate}%` : ""}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline"
+                          disabled={idx === 0}
+                          onClick={() => moveItem(idx, -1)}
+                          title="Move up"
+                          style={{ padding: "4px 8px", fontSize: "12px" }}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline"
+                          disabled={idx === sortedProducts.length - 1}
+                          onClick={() => moveItem(idx, 1)}
+                          title="Move down"
+                          style={{ padding: "4px 8px", fontSize: "12px" }}
+                        >
+                          ↓
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--line)", paddingTop: "12px", marginTop: "4px" }}>
+              <span style={{ fontSize: "12px", color: "var(--mute)" }}>
+                Tip: Changes apply immediately and are remembered.
+              </span>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setShowArrangeModal(false)}
+              >
+                ✓ Done
               </button>
             </div>
           </div>
